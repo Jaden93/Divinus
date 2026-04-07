@@ -285,3 +285,130 @@ Solo dopo che l’MVP 0 (uomo → ascia → legna → prima casa) è stabile e d
   - elementi che non cambiano molto il power, ma rendono il villaggio più bello da osservare.
 
 La monetizzazione (timer accelerabili, lavoratori aggiuntivi) dovrà appoggiarsi a questi sistemi, non sostituirli, e verrà progettata solo dopo che il loop di base e il ritmo giornaliero saranno chiari.
+
+---
+
+## Design Document — Feature Future (post-MVP)
+
+Questa sezione raccoglie le decisioni di design prese per le feature pianificate dopo l'MVP. Non implementare nulla qui finché il loop base non è stabile.
+
+---
+
+### Sistema Fede — Rework
+
+Il **mana non esiste**. La fede è l'unica risorsa del giocatore.
+
+- La fede è **globale** del villaggio (un solo valore, `VillageFaithSystem`).
+- Spendere fede per creare persone, creature o usare poteri **riduce** il valore globale.
+- La fede cresce o rallenta in base allo stato emotivo degli abitanti:
+  - Abitanti **felici** → fede aumenta velocemente.
+  - Abitanti **tristi** → fede aumenta lentamente.
+  - Abitanti **spaventati** → fede non aumenta.
+- Soglie di fede sbloccano poteri più potenti e riducono i timer di costruzione.
+
+---
+
+### Fede Individuale dei Popolani
+
+Ogni `VillagerController` avrà un attributo `individualFaith` (float 0–1) che rappresenta il livello di devozione personale. Categorie indicative:
+
+| Livello | Etichetta | Comportamento |
+|---|---|---|
+| 0.8–1.0 | Fanatico / Uomo di chiesa | Bonus produttività, reagisce positivamente a interventi divini |
+| 0.5–0.8 | Credente normale | Reazioni miste casuali agli interventi, possibili commenti positivi/negativi |
+| 0.2–0.5 | Tiepido / Scettico | Interventi divini aumentano lo scetticismo |
+| 0.0–0.2 | Eretico / Non fedele | Cospira attivamente: cerca di convincere chi ha fede debole a ribellarsi |
+
+**Effetti collaterali degli eretici:**
+- Possono causare **attacchi vandalici** a edifici o risorse.
+- Possono "contagiare" vicini con fede bassa, innescando rivolte.
+- Vanno tenuti sotto controllo o convertiti con il potere Conversione.
+
+**Effetto drag su un villager:**
+- Fanatico → lo interpreta come messaggio divino (effetto positivo).
+- Credente normale → reazione casuale con commento positivo o negativo (influenza fede globale di poco).
+- Scettico → aumenta il suo scetticismo.
+- Eretico → reazione di paura/fuga.
+
+---
+
+### Creature Benevolenti e Malefiche
+
+Il giocatore può evocare creature spendendo fede. Più creature possono coesistere (sandbox).
+
+**Creatura Benevola:**
+- Aspetto piccolo, piacevole, non minaccioso.
+- Effetti passivi: leggero bonus al morale/produttività dei villager nelle vicinanze.
+- Non genera paura.
+
+**Creatura Malefica:**
+- Aspetto imponente e pauroso, occupa spazio fisico nella mappa.
+- Effetti passivi: bonus generale alla produttività (paura come motivatore).
+- Aumenta progressivamente il livello di paura degli abitanti nelle vicinanze.
+- Se la paura supera una soglia critica → i villager colpiti **abbandonano permanentemente** il villaggio.
+- Bilanciamento chiave: bonus forti ma rischio reale di perdere abitanti. Il giocatore sceglie consapevolmente.
+
+**Note implementative future:**
+- Classe base `CreatureController` con tipo enum (Benevolent/Malevolent).
+- Effetti via trigger di prossimità (sfera collider).
+- AI minima: presenza statica o pattugliamento semplice.
+
+---
+
+### Sistema Drag & Drop Globale — Ruota Contestuale
+
+Il giocatore attiva la modalità interazione tenendo premuto su qualsiasi oggetto o persona nel mondo. Appare una **ruota contestuale** con voci variabili per tipo di target.
+
+**Voci comuni (tutti i target):**
+- **Sposta** — trascina l'elemento in una nuova posizione.
+- **Dettagli** — mostra informazioni sull'oggetto/persona.
+- **Estetica** — personalizza aspetto (decorazioni, colori, accessori — solo visuale).
+- **Potenzia** — upgrade funzionale (costo risorse o fede, implementato in futuro).
+
+**Voci specifiche per tipo:**
+- *Villager*: Sposta / Dettagli / Estetica / Potenzia
+- *Casa / Edificio*: Sposta / Dettagli / Estetica / Potenzia / Distruggi
+- *Albero / Nodo risorsa*: **Sradica** (ottieni legna/pietra/ecc. immediatamente, nessuno spostamento)
+- *Creatura*: Sposta / Dettagli / Potenzia
+
+**Regola fondamentale:** il giocatore non parla direttamente agli abitanti. È Dio. Ogni interazione avviene tramite azione fisica sul mondo, non tramite dialogo.
+
+**Note implementative future:**
+- `RadialMenuController.cs` — genera la ruota in base al tipo di `IInteractable` toccato.
+- Distinzione tra long-press (ruota) e tap rapido (selezione/feedback).
+- Compatibile con touch e mouse.
+
+---
+
+### Poteri Divini — Catalogo
+
+I poteri costano fede e hanno un **cooldown**. Sbloccati per soglia di fede.
+
+| Potere | Effetto | Complessità stimata |
+|---|---|---|
+| **Cambio Meteo** | Alterna sole/pioggia. Pioggia rallenta lavori, sole li accelera. | Media |
+| **Revive** | Resuscita un villager o animale morto. | Media |
+| **Costruzione Immediata** | Completa istantaneamente un cantiere in corso. | Bassa |
+| **Evoca Creatura** | Crea una creatura benevola o malefica. | Alta |
+| **Cataclisma** | Distrugge tutto in un'area piccola (circa dimensione di una casa). | Media |
+| **Conversione** | Trasforma un eretico/vandalo in credente. | Bassa |
+| **Ispirazione** | Tocca un villager: lavora più veloce e con morale alto per un periodo. | Bassa |
+
+---
+
+### Ruoli Lavoratori Futuri
+
+Dopo il boscaiolo (già implementato), i ruoli pianificati sono:
+
+- **Pescatore** — nodi acqua, produce cibo.
+- **Minatore** — nodi pietra, sblocca costruzioni Tier 2.
+- **Agricoltore / Coltivatore** — campi coltivabili, produce cibo.
+- **Allevatore** — animali domestici, produce risorse secondarie.
+
+Ogni ruolo richiede uno strumento specifico assegnabile tramite drag & drop dal pannello UI (come l'ascia attuale).
+
+---
+
+### Decorazioni
+
+Puramente estetiche, nessun effetto gameplay. Applicabili tramite voce "Estetica" della ruota contestuale su villager o edifici. Progettate dopo che il loop economico è stabile.
