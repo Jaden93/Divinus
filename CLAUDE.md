@@ -251,14 +251,25 @@ Ogni pull o modifica generata da Claude Code deve essere controllata con queste 
 
 Dopo l’MVP 0, le prossime feature prioritarie sono:
 
+- **Arredamento obbligatorio della casa**
+  - Una casa costruita non è abitabile di default.
+  - Perché un villager la usi per dormire o torni a casa in idle, il giocatore deve inserirvi:
+    - un **letto** (di qualsiasi tipo disponibile);
+    - un **armadio** (di qualsiasi tipo disponibile);
+    - una **torcia o lumino** (fonte di luce).
+  - Finché manca anche solo un elemento, la casa è "guscio vuoto" — il villager non la riconosce come sua.
+  - Il piazzamento arredi avviene tramite drag & drop (stesso sistema della ruota contestuale).
+  - Gli arredi sono oggetti fisici nella scena, non solo dati UI.
+
 - **Case multiple**
   - Permettere di costruire più case di legno.
-  - Ogni casa offre almeno 1 posto letto per un villager.
+  - Ogni casa richiede il proprio set di arredi per essere abitabile.
   - Non ci sono limiti fissi al numero di case, finché ci sono risorse.
 
 - **Punti di riposo leggeri (es. panca)**
   - Nuovo tipo di costruzione a basso costo (prima panca).
   - I villager stanchi possono usarla per recuperare un po’ di energia senza tornare a casa.
+  - Non richiede arredamento.
 
 Questi sistemi devono essere implementati in step separati, solo dopo che il loop base uomo → ascia → legna → casa → sonno è stabile.
 
