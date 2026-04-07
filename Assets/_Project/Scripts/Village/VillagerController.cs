@@ -29,7 +29,7 @@ namespace DivinePrototype
         [Header("Energia")]
         public float maxEnergy                   = 100f;
         public float energyDrainPerSecond        = 8f;
-        public float exhaustionThreshold         = 20f;
+        public float exhaustionThreshold         = 70f;
         public float idleSleepThreshold          = 90f;   // va a riposare se idle con energia < questa soglia
         public float restDuration                = 8f;    // riposo in place se non c'e' casa
         public float restRestoreAmount           = 60f;   // energia totale recuperata dal riposo in place
@@ -323,11 +323,12 @@ namespace DivinePrototype
         {
             // Priorità: panca libera > casa libera più vicina > riposo in place
             var bench = FindFreeBench();
-            if (bench != null) { GoToBench(bench); return; }
+            if (bench != null) { Debug.Log("[VillagerController] Vado alla panca"); GoToBench(bench); return; }
 
             var house = FindFreeHouse();
-            if (house != null) { GoToHouseAndSleep(house); return; }
+            if (house != null) { Debug.Log($"[VillagerController] Vado a dormire in casa: {house.name}"); GoToHouseAndSleep(house); return; }
 
+            Debug.Log("[VillagerController] Nessuna casa/panca libera, riposo in place");
             GoResting();
         }
 
@@ -443,6 +444,10 @@ namespace DivinePrototype
             _onWakeUp      = null;
             CurrentState   = VillagerState.GoingToSleep;
             SetAnim(true, false);
+
+            // Apri la porta subito così il villager vede l'apertura
+            _targetHouse?.OpenDoor();
+            Debug.Log($"[VillagerController] GoToHouseAndSleep → sleepTarget={_sleepTarget} casa={house.name}");
         }
 
         private void UpdateGoingToSleep()
@@ -452,7 +457,7 @@ namespace DivinePrototype
 
             bool agentStopped = _agent != null && _agent.isOnNavMesh
                 && !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f;
-            bool closeEnough  = Vector3.Distance(Flat(transform.position), target) <= 0.5f;
+            bool closeEnough  = Vector3.Distance(Flat(transform.position), target) <= 1.5f;
 
             if (agentStopped || closeEnough)
             {
@@ -460,7 +465,10 @@ namespace DivinePrototype
                 CurrentState = VillagerState.Sleeping;
                 _sleepTimer  = 0f;
                 SetAnim(false, false);
-                _targetHouse?.OpenDoor();
+
+                // Nascondi il villager (simula ingresso in casa)
+                SetVisibility(false);
+                _targetHouse?.CloseDoor();
             }
         }
 
@@ -472,14 +480,34 @@ namespace DivinePrototype
             if (_sleepTimer >= _sleepDuration || Energy >= maxEnergy)
             {
                 Debug.Log($"[VillagerController] Sveglio. Energia: {Energy:0}");
-                _targetHouse?.CloseDoor();
-                _targetHouse?.Vacate();
+
+                // Porta si apre, villager ricompare
+                var house = _targetHouse;
+                house?.OpenDoor();
+                SetVisibility(true);
+
+                house?.Vacate();
                 _targetHouse = null;
                 _sleepTarget = Vector3.zero;
                 _onWakeUp?.Invoke();
                 _onWakeUp = null;
                 GoIdleDirect();
+
+                // Chiudi la porta dopo un breve delay
+                if (house != null) StartCoroutine(CloseDoorDelayed(house));
             }
+        }
+
+        private System.Collections.IEnumerator CloseDoorDelayed(HouseController house)
+        {
+            yield return new WaitForSeconds(1.5f);
+            house.CloseDoor();
+        }
+
+        private void SetVisibility(bool visible)
+        {
+            foreach (var r in GetComponentsInChildren<Renderer>())
+                r.enabled = visible;
         }
 
         // ── Raccolta ascia a terra ─────────────────────────────────────

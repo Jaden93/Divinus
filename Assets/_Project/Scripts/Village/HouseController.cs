@@ -31,13 +31,17 @@ namespace DivinePrototype
 
         private void Start()
         {
-            _sleepPoint = transform.Find("SleepPoint");
-            if (_sleepPoint == null) _sleepPoint = transform.Find("Door");
+            // Cerca SleepPoint (case-insensitive)
+            foreach (Transform child in transform)
+            {
+                if (child.name.Equals("SleepPoint", System.StringComparison.OrdinalIgnoreCase))
+                { _sleepPoint = child; break; }
+            }
 
-            // Cerca il mesh della porta tra i figli
+            // Cerca il mesh della porta tra i figli (case-insensitive)
             foreach (var mr in GetComponentsInChildren<MeshRenderer>())
             {
-                if (mr.name.Contains("door") || mr.name.Contains("Door"))
+                if (mr.name.IndexOf("door", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     _doorMesh = mr.transform;
                     break;
@@ -46,6 +50,9 @@ namespace DivinePrototype
 
             if (_doorMesh != null)
                 SetupDoorPivot();
+
+            // Blocca il passaggio attraverso l'expansion (se presente)
+            SetupExpansionCollider();
 
             // Sostituisce il BoxCollider solido con lastre di parete
             // così il NavMeshAgent può fisicamente attraversare il portale
@@ -70,26 +77,31 @@ namespace DivinePrototype
 
         public Vector3 GetSleepPosition()
         {
-            // Usa il centro dei bounds del mesh della porta (i vertici sono baked,
-            // quindi il transform.position non riflette la posizione visiva reale)
+            // Priorità: SleepPoint esplicito > calcolo da porta > fallback
+            if (_sleepPoint != null)
+            {
+                return new Vector3(_sleepPoint.position.x, 0f, _sleepPoint.position.z);
+            }
+
             if (_doorMesh != null)
             {
-                var mf = _doorMesh.GetComponent<MeshFilter>();
-                if (mf != null && mf.sharedMesh != null)
+                // Usa i bounds del renderer per la posizione reale della porta
+                var renderer = _doorMesh.GetComponent<Renderer>();
+                if (renderer != null)
                 {
-                    Vector3 doorWorldCenter = _doorMesh.TransformPoint(mf.sharedMesh.bounds.center);
+                    Vector3 doorWorldCenter = renderer.bounds.center;
                     Vector3 towardDoor = doorWorldCenter - transform.position;
                     towardDoor.y = 0f;
                     if (towardDoor.sqrMagnitude > 0.001f)
                     {
-                        // Punto sulla soglia della porta (lievemente fuori), garantito sul NavMesh
-                        Vector3 threshold = doorWorldCenter + towardDoor.normalized * 0.5f;
+                        Vector3 threshold = doorWorldCenter + towardDoor.normalized * 1f;
                         return new Vector3(threshold.x, 0f, threshold.z);
                     }
                 }
             }
-            // Ultimo fallback: davanti la porta (-forward per la maggior parte dei modelli)
-            Vector3 front = transform.position - transform.forward * 1.5f;
+
+            // Fallback: davanti alla casa
+            Vector3 front = transform.position - transform.forward * 2f;
             return new Vector3(front.x, 0f, front.z);
         }
 
@@ -98,6 +110,7 @@ namespace DivinePrototype
         /// <summary>Apri la porta (chiamato quando il villager arriva).</summary>
         public void OpenDoor()
         {
+            Debug.Log($"[HouseController] OpenDoor chiamato. _doorPivot={(_doorPivot != null ? _doorPivot.name : "NULL")} _doorOpen={_doorOpen}");
             if (_doorPivot == null || _doorOpen) return;
             _doorOpen = true;
             StopAllCoroutines();
@@ -113,87 +126,210 @@ namespace DivinePrototype
             StartCoroutine(AnimateDoor(0f));
         }
 
+        // ── Expansion ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Aggiunge collider e NavMeshObstacle all'expansion della casa
+        /// in modo che il villager non possa attraversarla.
+        /// </summary>
+        private void SetupExpansionCollider()
+        {
+            foreach (Transform child in transform)
+            {
+                if (!child.name.Equals("expansion", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Skip se ha già un collider
+                if (child.GetComponent<Collider>() != null) return;
+
+                var renderer = child.GetComponent<Renderer>();
+                if (renderer == null) return;
+
+                Bounds b = renderer.bounds;
+
+                // BoxCollider basato sui bounds del renderer
+                var box = child.gameObject.AddComponent<BoxCollider>();
+                // Converti bounds world in local space del child
+                box.center = child.InverseTransformPoint(b.center);
+                Vector3 localSize = new Vector3(
+                    b.size.x / child.lossyScale.x,
+                    b.size.y / child.lossyScale.y,
+                    b.size.z / child.lossyScale.z);
+                box.size = localSize;
+
+                // NavMeshObstacle per bloccare il pathfinding
+                var obs = child.gameObject.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                obs.shape   = UnityEngine.AI.NavMeshObstacleShape.Box;
+                obs.center  = box.center;
+                obs.size    = box.size;
+                obs.carving = true;
+
+                Debug.Log($"[HouseController] Expansion collider aggiunto: bounds={b.center} size={b.size}");
+                return;
+            }
+        }
+
         // ── Collider pareti ───────────────────────────────────────────────────
 
         /// <summary>
-        /// Rimuove il BoxCollider solido e lo sostituisce con 6 lastre sottili
-        /// (pareti fisiche) lasciando libera l'apertura della porta.
-        /// Dimensioni basate sul modello med_house_small_a.
+        /// Calcola le pareti dai bounds reali di "exterior" e "door",
+        /// lasciando libero solo il varco della porta.
         /// </summary>
         private void ReplaceColliderWithWallSlabs()
         {
-            // Rimuovi il BoxCollider solido esistente
             var existing = GetComponent<BoxCollider>();
             if (existing != null) Destroy(existing);
 
-            // Dimensioni casa (da mesh bounds)
-            const float hw    = 2f;    // half-width  X
-            const float hd    = 1.5f;  // half-depth  Z
-            const float houseH = 5.4f;
-            const float thick  = 0.2f;
+            // Trova i bounds world di exterior e door
+            Renderer extR = null, doorR = null;
+            foreach (var mr in GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr.name.Equals("exterior", System.StringComparison.OrdinalIgnoreCase))
+                    extR = mr;
+                if (_doorMesh != null && mr.transform == _doorMesh)
+                    doorR = mr;
+            }
+            if (extR == null) return;
 
-            // Porta: larghezza 0.9m centrata, altezza 2m, sulla parete frontale Z=-hd
-            const float doorHW = 0.45f;  // half door width
-            const float doorH  = 2f;
+            Bounds ext = extR.bounds;
+            const float thick = 0.2f;
+            float houseH = ext.size.y;
+            float midY   = ext.center.y;
 
-            float wallMidY   = houseH / 2f;
-            float aboveDoorH = houseH - doorH;
-            float aboveDoorY = doorH + aboveDoorH / 2f;
+            if (doorR != null)
+            {
+                Bounds door = doorR.bounds;
 
-            // Parete frontale sinistra  [X: -hw … -doorHW]
-            AddWallSlab(new Vector3(-(hw + doorHW) / 2f, wallMidY, -hd),
-                        new Vector3(hw - doorHW, houseH, thick));
+                // Determina su quale faccia si trova la porta
+                float distToMinZ = Mathf.Abs(door.center.z - ext.min.z);
+                float distToMaxZ = Mathf.Abs(door.center.z - ext.max.z);
+                float distToMinX = Mathf.Abs(door.center.x - ext.min.x);
+                float distToMaxX = Mathf.Abs(door.center.x - ext.max.x);
+                float minFaceDist = Mathf.Min(distToMinZ, distToMaxZ, distToMinX, distToMaxX);
 
-            // Parete frontale destra   [X:  doorHW … hw]
-            AddWallSlab(new Vector3( (hw + doorHW) / 2f, wallMidY, -hd),
-                        new Vector3(hw - doorHW, houseH, thick));
+                // Porta sulla faccia Z-min (la più comune)
+                if (Mathf.Approximately(minFaceDist, distToMinZ) || Mathf.Approximately(minFaceDist, distToMaxZ))
+                {
+                    float doorFaceZ = minFaceDist == distToMinZ ? ext.min.z : ext.max.z;
+                    float doorLeft  = door.min.x;
+                    float doorRight = door.max.x;
+                    float doorTop   = door.max.y;
 
-            // Parete frontale sopra la porta
-            AddWallSlab(new Vector3(0f, aboveDoorY, -hd),
-                        new Vector3(doorHW * 2f, aboveDoorH, thick));
+                    // Parete sinistra della porta
+                    AddWallSlabWorld(
+                        new Vector3((ext.min.x + doorLeft) / 2f, midY, doorFaceZ),
+                        new Vector3(doorLeft - ext.min.x, houseH, thick));
+                    // Parete destra della porta
+                    AddWallSlabWorld(
+                        new Vector3((doorRight + ext.max.x) / 2f, midY, doorFaceZ),
+                        new Vector3(ext.max.x - doorRight, houseH, thick));
+                    // Sopra la porta
+                    float aboveH = ext.max.y - doorTop;
+                    if (aboveH > 0.1f)
+                        AddWallSlabWorld(
+                            new Vector3((doorLeft + doorRight) / 2f, doorTop + aboveH / 2f, doorFaceZ),
+                            new Vector3(doorRight - doorLeft, aboveH, thick));
+                    // Parete opposta
+                    float oppZ = minFaceDist == distToMinZ ? ext.max.z : ext.min.z;
+                    AddWallSlabWorld(
+                        new Vector3(ext.center.x, midY, oppZ),
+                        new Vector3(ext.size.x, houseH, thick));
+                }
+                else
+                {
+                    // Porta su faccia X (analoga ma invertita)
+                    float doorFaceX = minFaceDist == distToMinX ? ext.min.x : ext.max.x;
+                    float doorFront = door.min.z;
+                    float doorBack  = door.max.z;
+                    float doorTop   = door.max.y;
 
-            // Parete posteriore
-            AddWallSlab(new Vector3(0f, wallMidY, hd),
-                        new Vector3(hw * 2f, houseH, thick));
+                    AddWallSlabWorld(
+                        new Vector3(doorFaceX, midY, (ext.min.z + doorFront) / 2f),
+                        new Vector3(thick, houseH, doorFront - ext.min.z));
+                    AddWallSlabWorld(
+                        new Vector3(doorFaceX, midY, (doorBack + ext.max.z) / 2f),
+                        new Vector3(thick, houseH, ext.max.z - doorBack));
+                    float aboveH = ext.max.y - doorTop;
+                    if (aboveH > 0.1f)
+                        AddWallSlabWorld(
+                            new Vector3(doorFaceX, doorTop + aboveH / 2f, (doorFront + doorBack) / 2f),
+                            new Vector3(thick, aboveH, doorBack - doorFront));
+                    float oppX = minFaceDist == distToMinX ? ext.max.x : ext.min.x;
+                    AddWallSlabWorld(
+                        new Vector3(oppX, midY, ext.center.z),
+                        new Vector3(thick, houseH, ext.size.z));
+                }
+            }
 
-            // Parete laterale sinistra
-            AddWallSlab(new Vector3(-hw, wallMidY, 0f),
-                        new Vector3(thick, houseH, hd * 2f));
+            // Pareti laterali (sempre presenti)
+            // Sinistra
+            AddWallSlabWorld(
+                new Vector3(ext.min.x, midY, ext.center.z),
+                new Vector3(thick, houseH, ext.size.z));
+            // Destra
+            AddWallSlabWorld(
+                new Vector3(ext.max.x, midY, ext.center.z),
+                new Vector3(thick, houseH, ext.size.z));
 
-            // Parete laterale destra
-            AddWallSlab(new Vector3( hw, wallMidY, 0f),
-                        new Vector3(thick, houseH, hd * 2f));
+            Debug.Log($"[HouseController] Pareti create da bounds: ext={ext.center} size={ext.size}");
         }
 
-        private void AddWallSlab(Vector3 center, Vector3 size)
+        private void AddWallSlabWorld(Vector3 worldCenter, Vector3 worldSize)
         {
             var go = new GameObject("WallSlab") { layer = gameObject.layer };
-            go.transform.SetParent(transform, false);
-            var bc = go.AddComponent<BoxCollider>();
-            bc.center = center;
-            bc.size   = size;
+            go.transform.SetParent(transform, true);
+            go.transform.position = worldCenter;
+            go.transform.rotation = Quaternion.identity;
 
-            // Scolpisce il NavMesh a runtime: le pareti diventano non-walkable
-            // lasciando libera solo l'apertura della porta
+            var bc = go.AddComponent<BoxCollider>();
+            bc.center = Vector3.zero;
+            bc.size   = worldSize;
+
             var obs = go.AddComponent<UnityEngine.AI.NavMeshObstacle>();
             obs.shape   = UnityEngine.AI.NavMeshObstacleShape.Box;
-            obs.center  = Vector3.zero;   // locale al GO, già posizionato dal parent
-            obs.size    = size;
+            obs.center  = Vector3.zero;
+            obs.size    = worldSize;
             obs.carving = true;
         }
 
         private void SetupDoorPivot()
         {
-            // Crea un pivot alla cerniera della porta (bordo sinistro)
+            var renderer = _doorMesh.GetComponent<Renderer>();
+            if (renderer == null)
+            {
+                Debug.LogWarning("[HouseController] Door renderer NULL, pivot non creato.");
+                return;
+            }
+
+            Bounds b = renderer.bounds;
+            Vector3 houseCenter = transform.position;
+            houseCenter.y = b.center.y;
+
+            // Testa i 4 bordi del bounds, prendi il più vicino al centro casa (= cerniera)
+            Vector3[] edges = {
+                new Vector3(b.min.x, b.center.y, b.center.z),
+                new Vector3(b.max.x, b.center.y, b.center.z),
+                new Vector3(b.center.x, b.center.y, b.min.z),
+                new Vector3(b.center.x, b.center.y, b.max.z)
+            };
+            Vector3 hingePos = edges[0];
+            float minDist = float.MaxValue;
+            foreach (var e in edges)
+            {
+                float d = Vector3.Distance(e, houseCenter);
+                if (d < minDist) { minDist = d; hingePos = e; }
+            }
+            hingePos.y = 0f;
+
             _doorPivot = new GameObject("DoorPivot").transform;
             _doorPivot.SetParent(transform, false);
+            _doorPivot.position = hingePos;
+            // Usa la rotazione locale identity così localEulerAngles.y parte da 0
+            _doorPivot.localRotation = Quaternion.identity;
 
-            // Posiziona il pivot dove si trova la cerniera nel world
-            _doorPivot.position = _doorMesh.TransformPoint(hingeOffset);
-            _doorPivot.rotation = _doorMesh.rotation;
-
-            // Re-parent il mesh al pivot mantenendo la posizione world
             _doorMesh.SetParent(_doorPivot, true);
+
+            Debug.Log($"[HouseController] DoorPivot creato a {hingePos}, localEulerY={_doorPivot.localEulerAngles.y}, door bounds={b.center} size={b.size}");
         }
 
         private IEnumerator AnimateDoor(float targetAngle)
