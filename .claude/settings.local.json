@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__unityMCP__manage_scene",
+      "mcp__unityMCP__batch_execute",
+      "mcp__unityMCP__manage_camera",
+      "mcp__unityMCP__execute_code",
+      "mcp__unityMCP__manage_asset",
+      "mcp__unityMCP__read_console",
+      "mcp__unityMCP__manage_editor",
+      "mcp__blender__execute_blender_code",
+      "mcp__blender__get_scene_info",
+      "mcp__blender__get_viewport_screenshot",
+      "mcp__blender__generate_hyper3d_model_via_text",
+      "mcp__blender__download_polyhaven_asset",
+      "mcp__unityMCP__refresh_unity",
+      "mcp__unityMCP__find_in_file",
+      "mcp__unityMCP__find_gameobjects",
+      "mcp__unityMCP__manage_prefabs",
+      "mcp__plugin_claude-mem_mcp-search__smart_outline",
+      "Read(//c/Users/gianluca.naddeo/.claude/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('mcpServers',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/gianluca.naddeo/.claude/settings.json'\\)\\); print\\(list\\(d.get\\('mcpServers',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('C:/Users/gianluca.naddeo/.claude/settings.json'\\)\\); print\\(list\\(d.get\\('mcpServers',{}\\).keys\\(\\)\\)\\)\")",
+      "mcp__unityMCP__manage_gameobject",
+      "mcp__unityMCP__manage_components",
+      "mcp__plugin_claude-mem_mcp-search__smart_search",
+      "mcp__unityMCP__create_script",
+      "mcp__UnityMCP__read_console",
+      "mcp__UnityMCP__execute_code",
+      "mcp__UnityMCP__manage_camera",
+      "mcp__UnityMCP__manage_scene",
+      "mcp__UnityMCP__refresh_unity",
+      "mcp__UnityMCP__manage_editor"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "unityMCP"
+  ]
+}
