@@ -195,11 +195,6 @@ namespace DivinePrototype
             _walkTarget  = dest;
             CurrentState = VillagerState.Walking;
 
-            if (_animator != null)
-            {
-                _animator.SetTrigger(ParamStartWalk);
-            }
-
             SetAnim(true, false);
             MoveTo(Flat(dest));
         }
@@ -564,6 +559,13 @@ namespace DivinePrototype
         private void SetAnim(bool walking, bool chopping)
         {
             if (_animator == null) return;
+
+            // Trigger StartWalking only if we transition from not walking to walking
+            if (walking && !_animator.GetBool(ParamWalking))
+            {
+                _animator.SetTrigger(ParamStartWalk);
+            }
+
             _animator.SetBool(ParamWalking,  walking);
             _animator.SetBool(ParamChopping, chopping);
         }
@@ -631,6 +633,9 @@ namespace DivinePrototype
 
             if (_animator != null)
             {
+                // Reset other bools to avoid conflicting states
+                _animator.SetBool(ParamWalking, false);
+                _animator.SetBool(ParamChopping, false);
                 _animator.SetTrigger(ParamDying);
             }
 
@@ -643,6 +648,13 @@ namespace DivinePrototype
 
             Energy = maxEnergy * energyPercent;
             SetVisibility(true); // Assicura che sia visibile se era nascosto (es. in casa)
+            
+            if (_animator != null)
+            {
+                _animator.ResetTrigger(ParamDying);
+                _animator.Play("Idle", 0, 0f); // Force out of Dead state
+            }
+
             GoIdleDirect();
             Debug.Log($"[VillagerController] {name} REVIVED.");
         }
