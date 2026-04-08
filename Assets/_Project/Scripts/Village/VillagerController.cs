@@ -624,6 +624,16 @@ namespace DivinePrototype
             Debug.Log($"[VillagerController] {name} is DEAD.");
         }
 
+        public void Revive(float energyPercent)
+        {
+            if (CurrentState != VillagerState.Dead) return;
+            
+            Energy = maxEnergy * energyPercent;
+            SetVisibility(true); // Ensure visible if it was hidden
+            GoIdleDirect();
+            Debug.Log($"[VillagerController] {name} REVIVED.");
+        }
+
         public void ForceIdle()
         {
             if (_targetNode  != null) _targetNode.Release();

@@ -106,10 +106,14 @@ namespace DivinePrototype
                     break;
 
                 case DivinePower.Revive:
-                    if (faithSystem != null) faithSystem.AddFaith(-15f);
-                    StartCoroutine(FlashVillager(villager, new Color(0.8f, 1f, 0.8f), 1.0f));
-                    Debug.Log($"[DivineActionSystem] Revive villager: {villager.name}");
-                    ClearPendingPower();
+                    if (villager.CurrentState == VillagerController.VillagerState.Dead)
+                    {
+                        if (faithSystem != null) faithSystem.AddFaith(-15f);
+                        villager.Revive(0.5f);
+                        StartCoroutine(FlashVillager(villager, new Color(0.8f, 1f, 0.8f), 1.0f));
+                        Debug.Log($"[DivineActionSystem] Revive villager: {villager.name}");
+                        ClearPendingPower();
+                    }
                     break;
             }
         }
