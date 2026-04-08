@@ -61,8 +61,3 @@ node_modules/
 # Unity Android build temp (cmake, ninja, compiled .o)
 .utmp/
 
-# 3D asset binaries (gestiti fuori dal repo)
-*.fbx
-*.FBX
-*.blend
-*.blend1
