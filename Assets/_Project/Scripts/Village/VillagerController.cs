@@ -3,6 +3,8 @@ using UnityEngine.AI;
 
 namespace DivinePrototype
 {
+    [RequireComponent(typeof(NavMeshAgent))]
+    [RequireComponent(typeof(CapsuleCollider))]
     public class VillagerController : MonoBehaviour
     {
         public enum VillagerState
@@ -10,7 +12,8 @@ namespace DivinePrototype
             Idle, Walking, ChoppingWood, CarryingWood,
             GoingToSleep, Sleeping,
             PickingUpAxe, Resting,
-            GoingToBench, Sitting
+            GoingToBench, Sitting,
+            Dead
         }
 
         [Header("Movement")]
@@ -46,8 +49,10 @@ namespace DivinePrototype
 
         // ── Animator ───────────────────────────────────────────────────
         private Animator _animator;
-        private static readonly int ParamWalking  = Animator.StringToHash("isWalking");
-        private static readonly int ParamChopping = Animator.StringToHash("isChopping");
+        private static readonly int ParamWalking   = Animator.StringToHash("isWalking");
+        private static readonly int ParamChopping  = Animator.StringToHash("isChopping");
+        private static readonly int ParamStartWalk = Animator.StringToHash("startWalking");
+        private static readonly int ParamDying     = Animator.StringToHash("dying");
 
         // ── Stato interno walking ──────────────────────────────────────
         private Vector3 _walkTarget  = Vector3.zero;
@@ -83,6 +88,8 @@ namespace DivinePrototype
         {
             _animator = GetComponent<Animator>();
             _agent = GetComponent<NavMeshAgent>();
+            
+            // Auto-configure components if they were just added or are default
             if (_agent != null)
             {
                 _agent.speed                 = moveSpeed;
@@ -93,12 +100,23 @@ namespace DivinePrototype
                 _agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
                 _agent.avoidancePriority     = Random.Range(30, 70);
             }
+
+            var col = GetComponent<CapsuleCollider>();
+            if (col != null && col.height < 0.1f) // default or unconfigured
+            {
+                col.center = new Vector3(0, 1.07f, 0);
+                col.radius = 0.3f;
+                col.height = 2.15f;
+            }
+
             Energy = maxEnergy;
             GoIdleDirect();
         }
 
         private void Update()
         {
+            if (CurrentState == VillagerState.Dead) return;
+
             switch (CurrentState)
             {
                 case VillagerState.Idle:
@@ -176,6 +194,12 @@ namespace DivinePrototype
             }
             _walkTarget  = dest;
             CurrentState = VillagerState.Walking;
+
+            if (_animator != null)
+            {
+                _animator.SetTrigger(ParamStartWalk);
+            }
+
             SetAnim(true, false);
             MoveTo(Flat(dest));
         }
@@ -588,6 +612,40 @@ namespace DivinePrototype
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
         // ── API pubblica ──────────────────────────────────────────────
+
+        public void Die()
+        {
+            if (CurrentState == VillagerState.Dead) return;
+
+            // Release resources
+            if (_targetNode != null) _targetNode.Release();
+            if (_targetBench != null) _targetBench.Vacate();
+            if (_targetHouse != null) _targetHouse.Vacate();
+
+            _targetNode = null;
+            _targetBench = null;
+            _targetHouse = null;
+
+            StopAgent();
+            CurrentState = VillagerState.Dead;
+
+            if (_animator != null)
+            {
+                _animator.SetTrigger(ParamDying);
+            }
+
+            Debug.Log($"[VillagerController] {name} is DEAD.");
+        }
+
+        public void Revive(float energyPercent)
+        {
+            if (CurrentState != VillagerState.Dead) return;
+
+            Energy = maxEnergy * energyPercent;
+            SetVisibility(true); // Assicura che sia visibile se era nascosto (es. in casa)
+            GoIdleDirect();
+            Debug.Log($"[VillagerController] {name} REVIVED.");
+        }
 
         public void ForceIdle()
         {
