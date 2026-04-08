@@ -10,7 +10,8 @@ namespace DivinePrototype
             Idle, Walking, ChoppingWood, CarryingWood,
             GoingToSleep, Sleeping,
             PickingUpAxe, Resting,
-            GoingToBench, Sitting
+            GoingToBench, Sitting,
+            Dead
         }
 
         [Header("Movement")]
@@ -48,6 +49,8 @@ namespace DivinePrototype
         private Animator _animator;
         private static readonly int ParamWalking  = Animator.StringToHash("isWalking");
         private static readonly int ParamChopping = Animator.StringToHash("isChopping");
+        private static readonly int ParamStartWalk = Animator.StringToHash("startWalking");
+        private static readonly int ParamDying     = Animator.StringToHash("dying");
 
         // ── Stato interno walking ──────────────────────────────────────
         private Vector3 _walkTarget  = Vector3.zero;
@@ -99,6 +102,8 @@ namespace DivinePrototype
 
         private void Update()
         {
+            if (CurrentState == VillagerState.Dead) return;
+
             switch (CurrentState)
             {
                 case VillagerState.Idle:
@@ -176,6 +181,12 @@ namespace DivinePrototype
             }
             _walkTarget  = dest;
             CurrentState = VillagerState.Walking;
+
+            if (_animator != null)
+            {
+                _animator.SetTrigger(ParamStartWalk);
+            }
+
             SetAnim(true, false);
             MoveTo(Flat(dest));
         }
@@ -589,6 +600,30 @@ namespace DivinePrototype
 
         // ── API pubblica ──────────────────────────────────────────────
 
+        public void Die()
+        {
+            if (CurrentState == VillagerState.Dead) return;
+
+            // Release resources
+            if (_targetNode != null) _targetNode.Release();
+            if (_targetBench != null) _targetBench.Vacate();
+            if (_targetHouse != null) _targetHouse.Vacate();
+
+            _targetNode = null;
+            _targetBench = null;
+            _targetHouse = null;
+
+            StopAgent();
+            CurrentState = VillagerState.Dead;
+
+            if (_animator != null)
+            {
+                _animator.SetTrigger(ParamDying);
+            }
+
+            Debug.Log($"[VillagerController] {name} is DEAD.");
+        }
+
         public void ForceIdle()
         {
             if (_targetNode  != null) _targetNode.Release();
@@ -618,6 +653,7 @@ namespace DivinePrototype
                 VillagerState.Resting      => "Resting",
                 VillagerState.GoingToBench => "-> Bench",
                 VillagerState.Sitting      => "Sitting",
+                VillagerState.Dead         => "Dead",
                 _                          => ""
             };
         }
