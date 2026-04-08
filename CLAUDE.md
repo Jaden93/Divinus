@@ -261,7 +261,7 @@ Dopo l’MVP 0, le prossime feature prioritarie sono:
   - Il piazzamento arredi avviene tramite drag & drop (stesso sistema della ruota contestuale).
   - Gli arredi sono oggetti fisici nella scena, non solo dati UI.
   - Una volta completata (tutti e 3 gli arredi presenti), la casa viene **assegnata automaticamente al primo villager senza casa** — non casualmente, ma in ordine di priorità (chi è senza casa da più tempo).
-  - Un villager senza casa non dorme e recupera energia molto lentamente.
+  - Un villager senza casa **dorme per terra sul posto** dove si trova quando arriva la notte. Recupera energia molto lentamente rispetto a chi ha un letto.
 
 - **Case multiple**
   - Permettere di costruire più case di legno.
@@ -353,12 +353,14 @@ Il giocatore può evocare creature spendendo fede. Più creature possono coesist
 - Aspetto piccolo, piacevole, non minaccioso.
 - Effetti passivi: leggero bonus al morale/produttività dei villager nelle vicinanze.
 - Non genera paura.
+- **Condizione speciale:** i villager nelle vicinanze **recuperano più velocemente ferite e infortuni**.
 
 **Creatura Malefica:**
 - Aspetto imponente e pauroso, occupa spazio fisico nella mappa.
 - Effetti passivi: bonus generale alla produttività (paura come motivatore).
 - Aumenta progressivamente il livello di paura degli abitanti nelle vicinanze.
 - Se la paura supera una soglia critica → i villager colpiti **abbandonano permanentemente** il villaggio.
+- **Condizione speciale:** i villager nelle vicinanze **non vanno a dormire di notte** — lavorano senza sosta ma si esauriscono più rapidamente.
 - Bilanciamento chiave: bonus forti ma rischio reale di perdere abitanti. Il giocatore sceglie consapevolmente.
 
 **Note implementative future:**
@@ -429,7 +431,7 @@ Il mondo ha un ciclo giorno/notte continuo che influenza i comportamenti dei vil
 
 **Comportamenti:**
 - **Giorno** — villager lavorano normalmente.
-- **Notte** — villager tornano a casa (se ce l'hanno) e dormono. Chi non ha casa vaga o dorme all'aperto (recupero energia molto ridotto).
+- **Notte** — tutti i villager dormono. Chi ha casa torna al proprio letto. Chi non ha casa si sdraia sul posto dove si trova.
 
 **Potere divino — Cambio Giorno/Notte:**
 - Il giocatore può forzare la transizione in qualsiasi momento spendendo fede.
