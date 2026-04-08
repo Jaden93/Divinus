@@ -260,6 +260,8 @@ Dopo l’MVP 0, le prossime feature prioritarie sono:
   - Finché manca anche solo un elemento, la casa è "guscio vuoto" — il villager non la riconosce come sua.
   - Il piazzamento arredi avviene tramite drag & drop (stesso sistema della ruota contestuale).
   - Gli arredi sono oggetti fisici nella scena, non solo dati UI.
+  - Una volta completata (tutti e 3 gli arredi presenti), la casa viene **assegnata automaticamente al primo villager senza casa** — non casualmente, ma in ordine di priorità (chi è senza casa da più tempo).
+  - Un villager senza casa non dorme e recupera energia molto lentamente.
 
 - **Case multiple**
   - Permettere di costruire più case di legno.
@@ -397,6 +399,7 @@ I poteri costano fede e hanno un **cooldown**. Sbloccati per soglia di fede.
 
 | Potere | Effetto | Complessità stimata |
 |---|---|---|
+| **Cambio Giorno/Notte** | Forza la transizione immediata da giorno a notte o viceversa. | Media |
 | **Cambio Meteo** | Alterna sole/pioggia. Pioggia rallenta lavori, sole li accelera. | Media |
 | **Revive** | Resuscita un villager o animale morto. | Media |
 | **Costruzione Immediata** | Completa istantaneamente un cantiere in corso. | Bassa |
@@ -417,6 +420,26 @@ Dopo il boscaiolo (già implementato), i ruoli pianificati sono:
 - **Allevatore** — animali domestici, produce risorse secondarie.
 
 Ogni ruolo richiede uno strumento specifico assegnabile tramite drag & drop dal pannello UI (come l'ascia attuale).
+
+---
+
+### Ciclo Giorno / Notte
+
+Il mondo ha un ciclo giorno/notte continuo che influenza i comportamenti dei villager e l'atmosfera visiva.
+
+**Comportamenti:**
+- **Giorno** — villager lavorano normalmente.
+- **Notte** — villager tornano a casa (se ce l'hanno) e dormono. Chi non ha casa vaga o dorme all'aperto (recupero energia molto ridotto).
+
+**Potere divino — Cambio Giorno/Notte:**
+- Il giocatore può forzare la transizione in qualsiasi momento spendendo fede.
+- Utile per far riposare i villager prima che si esauriscano, o per avviare subito un nuovo giorno lavorativo.
+- Ha cooldown per evitare abuso.
+
+**Note implementative future:**
+- `DayNightCycle.cs` — gestisce timer, rotazione luce direzionale, skybox blend.
+- `Shader.SetGlobalFloat("_TimeOfDay", ...)` per effetti globali su shader.
+- I villager reagiscono all'evento `OnNightBegins` / `OnDayBegins`.
 
 ---
 
