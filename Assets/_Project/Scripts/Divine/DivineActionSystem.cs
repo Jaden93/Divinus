@@ -97,6 +97,10 @@ namespace DivinePrototype
                 case DivinePower.Smite:
                     LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f);
                     if (faithSystem != null) faithSystem.AddFaith(-15f);
+                    
+                    // Trigger death
+                    villager.Die();
+                    
                     StartCoroutine(FlashVillager(villager, new Color(1f, 0.9f, 0.1f), 0.3f));
                     Debug.Log($"[DivineActionSystem] Smite villager: {villager.name}");
                     break;
