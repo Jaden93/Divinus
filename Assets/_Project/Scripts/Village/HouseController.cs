@@ -80,7 +80,7 @@ namespace DivinePrototype
             // Priorità: SleepPoint esplicito > calcolo da porta > fallback
             if (_sleepPoint != null)
             {
-                return new Vector3(_sleepPoint.position.x, 0f, _sleepPoint.position.z);
+                return _sleepPoint.position;
             }
 
             if (_doorMesh != null)
@@ -94,15 +94,18 @@ namespace DivinePrototype
                     towardDoor.y = 0f;
                     if (towardDoor.sqrMagnitude > 0.001f)
                     {
-                        Vector3 threshold = doorWorldCenter + towardDoor.normalized * 1f;
-                        return new Vector3(threshold.x, 0f, threshold.z);
+                        // Spingiamo il target più all'interno (2.2 unità) per assicurarci che entri
+                        // Manteniamo la Y della porta o del pivot casa
+                        Vector3 threshold = doorWorldCenter - towardDoor.normalized * 2.2f;
+                        threshold.y = transform.position.y; 
+                        return threshold;
                     }
                 }
             }
 
             // Fallback: davanti alla casa
             Vector3 front = transform.position - transform.forward * 2f;
-            return new Vector3(front.x, 0f, front.z);
+            return front;
         }
 
         // ── Porta ─────────────────────────────────────────────────────────

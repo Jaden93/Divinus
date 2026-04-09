@@ -55,10 +55,13 @@ namespace DivinePrototype
             Debug.Log("[ForestManager] Casa costruita. Assegnazione task ripresa.");
         }
 
-        private void OnNodeDepleted(ForestNode node)
+        private void OnNodeDepleted(ResourceNode node)
         {
-            _nodes.Remove(node);
-            Debug.Log($"[ForestManager] Albero esaurito. Rimasti: {_nodes.Count}");
+            if (node is ForestNode forestNode)
+            {
+                _nodes.Remove(forestNode);
+            }
+            Debug.Log($"[ForestManager] Risorsa esaurita. Rimasti: {_nodes.Count}");
         }
 
         private IEnumerator AssignTick()
@@ -91,7 +94,7 @@ namespace DivinePrototype
                 ForestNode nearest = FindNearestIntactNode(v.transform.position);
                 if (nearest != null)
                 {
-                    v.AssignWoodTask(nearest);
+                    v.AssignResourceTask(nearest);
                     Debug.Log($"[ForestManager] Task assegnato a {v.name} → {nearest.name}");
                 }
             }

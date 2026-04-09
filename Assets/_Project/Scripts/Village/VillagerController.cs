@@ -60,10 +60,11 @@ namespace DivinePrototype
         private float   _idleDuration = 0f;
 
         // ── Stato interno task ─────────────────────────────────────────
-        private ForestNode         _targetNode;
+        private ResourceNode        _targetResource;
         private WoodDepotController _targetDepotCtrl;   // depot fisico (può essere null)
         private bool  _arrivedAtNode = false;
         private float _chopTimer     = 0f;
+        private int   _carriedWoodAmount = 0;
 
         // ── Stato interno sleep ────────────────────────────────────────
         private Vector3          _sleepTarget;
@@ -88,25 +89,34 @@ namespace DivinePrototype
         {
             _animator = GetComponent<Animator>();
             _agent = GetComponent<NavMeshAgent>();
-            
-            // Auto-configure components if they were just added or are default
+
+            // Configura Rigidbody per evitare che la fisica "spinga" il villager nel terreno
+            var rb = GetComponent<Rigidbody>();
+            if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true; 
+            rb.useGravity = false;
+
+            // Auto-configure NavMeshAgent
             if (_agent != null)
             {
                 _agent.speed                 = moveSpeed;
                 _agent.stoppingDistance      = waypointStopDistance;
                 _agent.angularSpeed          = 360f;
-                _agent.acceleration          = 8f;
-                _agent.radius                = 0.35f;
+                _agent.acceleration          = 10f;
+                _agent.radius                = 0.3f;
+                _agent.height                = 2.0f;
+                _agent.baseOffset            = 0f; // Assicurati che il pivot sia ai piedi
                 _agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
                 _agent.avoidancePriority     = Random.Range(30, 70);
             }
 
             var col = GetComponent<CapsuleCollider>();
-            if (col != null && col.height < 0.1f) // default or unconfigured
+            if (col != null)
             {
-                col.center = new Vector3(0, 1.07f, 0);
+                col.center = new Vector3(0, 1.0f, 0);
                 col.radius = 0.3f;
-                col.height = 2.15f;
+                col.height = 2.0f;
+                col.isTrigger = false; // Deve essere solido ma gestito dal NavMesh
             }
 
             Energy = maxEnergy;
@@ -224,14 +234,14 @@ namespace DivinePrototype
             return false;
         }
 
-        // ── Task: Taglia legna ─────────────────────────────────────────
+        // ── Task: Raccolta Risorse ─────────────────────────────────────
 
-        public void AssignWoodTask(ForestNode node)
+        public void AssignResourceTask(ResourceNode node)
         {
             if (node == null) return;
             if (!node.TryAssign(this)) return;
 
-            _targetNode     = node;
+            _targetResource = node;
             _targetDepotCtrl = FindNearestDepotController();
             _arrivedAtNode  = false;
             _chopTimer      = 0f;
@@ -240,20 +250,20 @@ namespace DivinePrototype
 
         private void UpdateChoppingWood()
         {
-            if (_targetNode == null) { GoIdle(); return; }
+            if (_targetResource == null) { GoIdle(); return; }
 
-            // Smetti se il depot è pieno
+            // Smetti se il deposito è pieno (WoodDepot è il deposito unico attuale)
             var depot = WoodDepot.Instance;
             if (depot != null && depot.WoodCount >= depot.MaxWood)
             {
-                _targetNode.Release();
-                _targetNode      = null;
+                _targetResource.Release();
+                _targetResource  = null;
                 _targetDepotCtrl = null;
                 GoIdleDirect();
                 return;
             }
 
-            Vector3 nodePos = Flat(_targetNode.transform.position);
+            Vector3 nodePos = Flat(_targetResource.transform.position);
 
             if (!_arrivedAtNode)
             {
@@ -275,15 +285,18 @@ namespace DivinePrototype
 
                 if (_chopTimer >= chopDuration)
                 {
-                    _targetNode.Deplete();
+                    // Preleva solo quanto serve a riempire il deposito
+                    int spaceLeft = (depot != null) ? (depot.MaxWood - depot.WoodCount) : 1;
+                    _carriedWoodAmount = _targetResource.TakeResource(spaceLeft);
+                    
                     GoCarryingWood();
                     return;
                 }
 
                 if (IsExhausted)
                 {
-                    if (_targetNode != null) _targetNode.Release();
-                    _targetNode  = null;
+                    if (_targetResource != null) _targetResource.Release();
+                    _targetResource  = null;
                     _targetDepotCtrl = null;
                     StartAutoSleep();
                 }
@@ -300,13 +313,12 @@ namespace DivinePrototype
 
         private void UpdateCarryingWood()
         {
-            int woodAmount = _targetNode != null ? _targetNode.woodAmount : 1;
-
             if (_targetDepotCtrl == null)
             {
-                // Nessun depot fisico: consegna istantanea (cap 9)
-                WoodDepot.Instance?.DepositWood(woodAmount);
-                _targetNode      = null;
+                // Nessun depot fisico: consegna istantanea
+                WoodDepot.Instance?.DepositWood(_carriedWoodAmount);
+                _carriedWoodAmount = 0;
+                _targetResource  = null;
                 _targetDepotCtrl = null;
                 if (IsExhausted) StartAutoSleep(); else GoIdleDirect();
                 return;
@@ -317,8 +329,9 @@ namespace DivinePrototype
 
             if (AgentReachedTarget(depotPos, taskStopDistance))
             {
-                WoodDepot.Instance?.DepositWood(woodAmount);
-                _targetNode      = null;
+                WoodDepot.Instance?.DepositWood(_carriedWoodAmount);
+                _carriedWoodAmount = 0;
+                _targetResource  = null;
                 _targetDepotCtrl = null;
                 if (IsExhausted) StartAutoSleep(); else GoIdleDirect();
             }
@@ -382,8 +395,8 @@ namespace DivinePrototype
         public void GoToBench(BenchController bench)
         {
             if (bench == null || !bench.TryOccupy(this)) return;
-            if (_targetNode != null) _targetNode.Release();
-            _targetNode  = null;
+            if (_targetResource != null) _targetResource.Release();
+            _targetResource  = null;
             _targetDepotCtrl = null;
             _targetBench = bench;
             _sitTimer    = 0f;
@@ -447,46 +460,56 @@ namespace DivinePrototype
         {
             if (!house.TryOccupy()) { GoResting(); return; }
 
-            if (_targetNode != null) _targetNode.Release();
-            _targetNode      = null;
+            if (_targetResource != null) _targetResource.Release();
+            _targetResource      = null;
             _targetDepotCtrl = null;
 
             _targetHouse   = house;
             Vector3 rawSleepPos = house.GetSleepPosition();
+            
+            // Riduciamo il raggio dell'agente per permettergli di passare in varchi stretti (la porta)
+            if (_agent != null) _agent.radius = 0.15f;
+
             // Snap al punto NavMesh più vicino per garantire raggiungibilità
             if (NavMesh.SamplePosition(rawSleepPos, out NavMeshHit sleepHit, 4f, NavMesh.AllAreas))
                 _sleepTarget = sleepHit.position;
             else
                 _sleepTarget = rawSleepPos;
+
             _sleepDuration = house.sleepDuration;
             _sleepTimer    = 0f;
             _onWakeUp      = null;
             CurrentState   = VillagerState.GoingToSleep;
             SetAnim(true, false);
 
-            // Apri la porta subito così il villager vede l'apertura
             _targetHouse?.OpenDoor();
-            Debug.Log($"[VillagerController] GoToHouseAndSleep → sleepTarget={_sleepTarget} casa={house.name}");
         }
 
         private void UpdateGoingToSleep()
         {
-            Vector3 target = Flat(_sleepTarget);
+            Vector3 target = _sleepTarget;
             MoveTo(target);
 
-            bool agentStopped = _agent != null && _agent.isOnNavMesh
-                && !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f;
-            bool closeEnough  = Vector3.Distance(Flat(transform.position), target) <= 1.5f;
-
-            if (agentStopped || closeEnough)
+            // Calcola la distanza reale dal target (3D)
+            float dist = Vector3.Distance(transform.position, target);
+            
+            // Se siamo molto vicini (0.5f)
+            bool agentStopped = _agent != null && _agent.isOnNavMesh && !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f;
+            
+            if (dist <= 0.5f || agentStopped)
             {
                 StopAgent();
+                
+                // Disabilita l'agente per permettere il posizionamento esatto senza attriti
+                if (_agent != null) _agent.enabled = false;
+
                 CurrentState = VillagerState.Sleeping;
                 _sleepTimer  = 0f;
                 SetAnim(false, false);
 
-                // Nascondi il villager (simula ingresso in casa)
-                SetVisibility(false);
+                // Forza posizione finale esatta (usando la Y del target)
+                transform.position = _sleepTarget;
+
                 _targetHouse?.CloseDoor();
             }
         }
@@ -500,21 +523,49 @@ namespace DivinePrototype
             {
                 Debug.Log($"[VillagerController] Sveglio. Energia: {Energy:0}");
 
-                // Porta si apre, villager ricompare
                 var house = _targetHouse;
                 house?.OpenDoor();
-                SetVisibility(true);
-
+                
                 house?.Vacate();
                 _targetHouse = null;
-                _sleepTarget = Vector3.zero;
                 _onWakeUp?.Invoke();
                 _onWakeUp = null;
-                GoIdleDirect();
 
-                // Chiudi la porta dopo un breve delay
+                StartCoroutine(WalkOutAndIdle(house));
+
                 if (house != null) StartCoroutine(CloseDoorDelayed(house));
             }
+        }
+
+        private System.Collections.IEnumerator WalkOutAndIdle(HouseController house)
+        {
+            CurrentState = VillagerState.Walking;
+            
+            // Riabilita l'agente per uscire
+            if (_agent != null) _agent.enabled = true;
+
+            Vector3 exitPos = transform.position - transform.forward * 2.5f;
+            if (house != null)
+            {
+                Vector3 dirOut = (transform.position - house.transform.position).normalized;
+                exitPos = transform.position + dirOut * 3.5f;
+            }
+
+            MoveTo(exitPos);
+            SetAnim(true, false);
+
+            float timeout = 3f;
+            while (timeout > 0f && Vector3.Distance(transform.position, exitPos) > 0.8f)
+            {
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            // Ripristina il raggio standard
+            if (_agent != null) _agent.radius = 0.35f;
+
+            _sleepTarget = Vector3.zero;
+            GoIdleDirect();
         }
 
         private System.Collections.IEnumerator CloseDoorDelayed(HouseController house)
@@ -572,26 +623,26 @@ namespace DivinePrototype
 
         // ── Utilita' ───────────────────────────────────────────────────
 
-        private void MoveTo(Vector3 targetFlat)
+        private void MoveTo(Vector3 target)
         {
-            Vector3 dest = new Vector3(targetFlat.x, 0f, targetFlat.z);
             if (_agent != null && _agent.isOnNavMesh)
             {
                 _agent.isStopped = false;
                 // Evita di resettare pathPending ogni frame: ricalcola solo se destinazione cambiata
                 if (!_agent.hasPath || _agent.pathPending ||
-                    Vector3.Distance(_agent.destination, dest) > 0.05f)
+                    Vector3.Distance(_agent.destination, target) > 0.05f)
                 {
-                    _agent.SetDestination(dest);
+                    _agent.SetDestination(target);
                 }
                 return;
             }
             // Fallback senza NavMesh
             transform.position = Vector3.MoveTowards(
                 transform.position,
-                new Vector3(dest.x, transform.position.y, dest.z),
+                target,
                 moveSpeed * Time.deltaTime);
-            Vector3 dir = dest - Flat(transform.position);
+            Vector3 dir = target - transform.position;
+            dir.y = 0f;
             if (dir.sqrMagnitude > 0.001f)
                 transform.rotation = Quaternion.Slerp(
                     transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
@@ -620,11 +671,11 @@ namespace DivinePrototype
             if (CurrentState == VillagerState.Dead) return;
 
             // Release resources
-            if (_targetNode != null) _targetNode.Release();
+            if (_targetResource != null) _targetResource.Release();
             if (_targetBench != null) _targetBench.Vacate();
             if (_targetHouse != null) _targetHouse.Vacate();
 
-            _targetNode = null;
+            _targetResource = null;
             _targetBench = null;
             _targetHouse = null;
 
@@ -661,9 +712,9 @@ namespace DivinePrototype
 
         public void ForceIdle()
         {
-            if (_targetNode  != null) _targetNode.Release();
+            if (_targetResource  != null) _targetResource.Release();
             if (_targetBench != null) _targetBench.Vacate();
-            _targetNode      = null;
+            _targetResource  = null;
             _targetDepotCtrl = null;
             _targetBench     = null;
             GoIdleDirect();

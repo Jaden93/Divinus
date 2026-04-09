@@ -1,20 +1,16 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace DivinePrototype
 {
     /// <summary>
-    /// Rappresenta un albero interagibile. Gestisce lo stato (Intact → Depleted)
-    /// e la sostituzione visiva con il moncone quando esaurito.
+    /// Specializzazione di ResourceNode per gli alberi.
+    /// Aggiunge animazione di caduta, danni da impatto e moncone.
     /// </summary>
-    public class ForestNode : MonoBehaviour
+    public class ForestNode : ResourceNode
     {
-        public enum NodeState { Intact, BeingChopped, Depleted }
-
-        [Header("Setup")]
+        [Header("Albero Settings")]
         public GameObject stumpPrefab;      // TreeStump.prefab
-        public int woodAmount = 3;          // legna prodotta da questo albero
 
         [Header("Fall Animation")]
         public float fallDuration = 1.2f;      // durata della caduta
@@ -27,46 +23,25 @@ namespace DivinePrototype
         public float fallDamageRadius = 2f;    // raggio area impatto chioma
         public float fallDamage       = 40f;   // energia tolta ai villager colpiti
 
-        [Header("Events")]
-        public UnityEvent<ForestNode> onDepleted;
-
-        public NodeState State { get; private set; } = NodeState.Intact;
-
-        private VillagerController _assignedVillager;
-
-        /// <summary>
-        /// Assegna un popolano a questo albero. Ritorna false se già occupato o esaurito.
-        /// </summary>
-        public bool TryAssign(VillagerController villager)
+        private void Start()
         {
-            if (State != NodeState.Intact) return false;
-            _assignedVillager = villager;
-            State = NodeState.BeingChopped;
-            return true;
+            resourceName = "Wood";
         }
 
-        /// <summary>
-        /// Chiamato dal popolano quando finisce di tagliare.
-        /// Avvia animazione di caduta e sprofondamento, poi disattiva.
-        /// </summary>
-        public void Deplete()
+        protected override void OnDepleteVisuals()
         {
-            if (State == NodeState.Depleted) return;
-
-            State = NodeState.Depleted;
-
             // Salva la posizione del boscaiolo per calcolare la direzione di caduta
-            Vector3 chopperPos = _assignedVillager != null
-                ? _assignedVillager.transform.position
+            Vector3 chopperPos = assignedVillager != null
+                ? assignedVillager.transform.position
                 : transform.position + Vector3.forward;
-            _assignedVillager = null;
+            
+            assignedVillager = null;
 
             if (stumpPrefab != null)
             {
                 Instantiate(stumpPrefab, transform.position, transform.rotation);
             }
 
-            onDepleted?.Invoke(this);
             StartCoroutine(FallAndSink(chopperPos));
         }
 
@@ -126,16 +101,6 @@ namespace DivinePrototype
             }
 
             gameObject.SetActive(false);
-        }
-
-        /// <summary>
-        /// Libera l'assegnazione senza depletare (es. popolano interrotto).
-        /// </summary>
-        public void Release()
-        {
-            if (State == NodeState.BeingChopped)
-                State = NodeState.Intact;
-            _assignedVillager = null;
         }
     }
 }
