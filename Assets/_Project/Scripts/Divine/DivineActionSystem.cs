@@ -127,12 +127,26 @@ namespace DivinePrototype
                     obj.TakeDamage();
                     if (faithSystem != null) faithSystem.AddFaith(-5f);
                     Debug.Log($"[DivineActionSystem] Smite su {obj.name} → stato: {obj.CurrentState}");
+                    
+                    DivineEventManager.Broadcast(new DivineEvent { 
+                        Type = DivineEventType.Smite, 
+                        Position = obj.transform.position, 
+                        Target = obj.gameObject, 
+                        Radius = 15f 
+                    });
                     break;
 
                 case DivinePower.Repair:
                     obj.Repair();
                     if (faithSystem != null) faithSystem.AddFaith(3f);
                     Debug.Log($"[DivineActionSystem] Riparato {obj.name}");
+                    
+                    DivineEventManager.Broadcast(new DivineEvent { 
+                        Type = DivineEventType.Repair, 
+                        Position = obj.transform.position, 
+                        Target = obj.gameObject, 
+                        Radius = 15f 
+                    });
                     break;
 
                 default:
@@ -203,6 +217,12 @@ namespace DivinePrototype
             mat.color = flashColor;
             yield return new WaitForSeconds(duration);
             if (mat != null) mat.color = original;
+        }
+
+
+    }
+}
+         if (mat != null) mat.color = original;
         }
 
 
