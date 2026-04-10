@@ -154,6 +154,18 @@ namespace DivinePrototype
             Debug.Log("[DivineActionSystem] Ascia donata al popolano.");
         }
 
+        /// <summary>
+        /// Chiamato da PickaxeActionUI quando l'icona piccone viene trascinata sul popolano.
+        /// </summary>
+        public void GivePickaxe(VillagerController villager)
+        {
+            // Per ora non usiamo HasPickaxe in GameStateSystem per non corromperlo,
+            // ma potremmo aggiungerlo in futuro se necessario.
+            villager.HasPersonalPickaxe = true;
+            StartCoroutine(FlashVillager(villager, new Color(0.2f, 0.85f, 1f), 1.2f));
+            Debug.Log("[DivineActionSystem] Piccone donato al popolano.");
+        }
+
         // ── Spawn ────────────────────────────────────────────────────────
 
         /// <summary>
