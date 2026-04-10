@@ -422,8 +422,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 6
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -431,9 +435,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &150046235
 GameObject:
   m_ObjectHideFlags: 0
@@ -919,7 +920,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.89089
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
       propertyPath: m_LocalPosition.z
@@ -956,6 +957,18 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
       propertyPath: m_Name
       value: Villager_Final
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
+      propertyPath: m_Avatar
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 6f5be09426dbc6346be2cc618e9421b2, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 8b716a4e4a70e9b47be5ac4d9010a716, type: 3}
+      propertyPath: m_WarningMessage
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1082,8 +1095,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 3
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -1091,9 +1108,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &431211868
 GameObject:
   m_ObjectHideFlags: 0
@@ -1528,8 +1542,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 3
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -1537,9 +1555,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &636116964
 GameObject:
   m_ObjectHideFlags: 0
@@ -2241,8 +2256,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 3
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -2250,9 +2269,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &768921681
 GameObject:
   m_ObjectHideFlags: 0
@@ -2452,8 +2468,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 3
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -2461,9 +2481,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1001 &893404609
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2588,8 +2605,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 12
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -2597,9 +2618,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &958289718
 GameObject:
   m_ObjectHideFlags: 0
@@ -4303,8 +4321,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e9d7522fe8b71143a1fa8c666c92d23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
+  resourceName: Wood
+  amount: 3
+  onDepleted:
+    m_PersistentCalls:
+      m_Calls: []
   stumpPrefab: {fileID: 0}
-  woodAmount: 9
   fallDuration: 1.2
   fallAngle: 80
   sinkDelay: 0.5
@@ -4312,9 +4334,6 @@ MonoBehaviour:
   sinkDepth: 3
   fallDamageRadius: 2
   fallDamage: 40
-  onDepleted:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1575807780
 GameObject:
   m_ObjectHideFlags: 0
@@ -5217,66 +5236,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1671745165689634718, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1671745165689634718, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 3028692981825314934, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
-    - target: {fileID: 6422725001402978462, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6422725001402978462, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.82
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: -8728998184671239757, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
       propertyPath: m_Name
       value: window_3
@@ -5336,6 +5295,66 @@ PrefabInstance:
     - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
       propertyPath: m_LocalPosition.z
       value: -3.14
+      objectReference: {fileID: 0}
+    - target: {fileID: 1671745165689634718, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1671745165689634718, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 3028692981825314934, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+    - target: {fileID: 6422725001402978462, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6422725001402978462, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.82
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
