@@ -692,11 +692,11 @@ namespace DivinePrototype
             if (CurrentState == VillagerState.Dead) return;
 
             // Release resources
-            if (_targetResource != null) _targetResource.Release();
+            if (_targetNode != null) _targetNode.Release();
             if (_targetBench != null) _targetBench.Vacate();
             if (_targetHouse != null) _targetHouse.Vacate();
 
-            _targetResource = null;
+            _targetNode = null;
             _targetBench = null;
             _targetHouse = null;
 
@@ -705,9 +705,6 @@ namespace DivinePrototype
 
             if (_animator != null)
             {
-                // Reset other bools to avoid conflicting states
-                _animator.SetBool(ParamWalking, false);
-                _animator.SetBool(ParamChopping, false);
                 _animator.SetTrigger(ParamDying);
             }
 
@@ -717,16 +714,9 @@ namespace DivinePrototype
         public void Revive(float energyPercent)
         {
             if (CurrentState != VillagerState.Dead) return;
-
-            Energy = maxEnergy * energyPercent;
-            SetVisibility(true); // Assicura che sia visibile se era nascosto (es. in casa)
             
-            if (_animator != null)
-            {
-                _animator.ResetTrigger(ParamDying);
-                _animator.Play("Idle", 0, 0f); // Force out of Dead state
-            }
-
+            Energy = maxEnergy * energyPercent;
+            SetVisibility(true); // Ensure visible if it was hidden
             GoIdleDirect();
             Debug.Log($"[VillagerController] {name} REVIVED.");
         }
@@ -760,6 +750,7 @@ namespace DivinePrototype
                 VillagerState.Resting      => "Resting",
                 VillagerState.GoingToBench => "-> Bench",
                 VillagerState.Sitting      => "Sitting",
+                VillagerState.Dead         => "Dead",
                 _                          => ""
             };
         }
