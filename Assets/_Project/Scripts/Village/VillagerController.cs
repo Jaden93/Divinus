@@ -17,7 +17,7 @@ namespace DivinePrototype
         }
 
         [Header("Movement")]
-        public float moveSpeed            = 2f;
+        public float moveSpeed            = 1.5f; // Ridotto da 2.0 per evitare effetto pattinaggio
         public float waypointStopDistance = 0.3f;
         public float wanderRadius         = 10f;  // raggio random wander
 
@@ -51,7 +51,6 @@ namespace DivinePrototype
         private Animator _animator;
         private static readonly int ParamWalking   = Animator.StringToHash("isWalking");
         private static readonly int ParamChopping  = Animator.StringToHash("isChopping");
-        private static readonly int ParamStartWalk = Animator.StringToHash("startWalking");
         private static readonly int ParamDying     = Animator.StringToHash("dying");
 
         // ── Stato interno walking ──────────────────────────────────────
@@ -461,6 +460,9 @@ namespace DivinePrototype
         private void GoToHouseAndSleep(HouseController house)
         {
             if (!house.TryOccupy()) { GoResting(); return; }
+
+            // RESET IMMEDIATO ANIMAZIONI: fermiamo chopping o altro prima di partire
+            SetAnim(false, false);
 
             if (_targetResource != null) _targetResource.Release();
             _targetResource      = null;
