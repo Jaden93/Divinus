@@ -106,6 +106,11 @@ namespace DivinePrototype
             rb.isKinematic = true; 
             rb.useGravity = false;
 
+            if (GetComponent<VillagerSocialReaction>() == null)
+            {
+                gameObject.AddComponent<VillagerSocialReaction>();
+            }
+
             if (_agent != null)
             {
                 _agent.speed                 = moveSpeed;
