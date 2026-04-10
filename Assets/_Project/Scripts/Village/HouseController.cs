@@ -75,37 +75,49 @@ namespace DivinePrototype
             _occupants = Mathf.Max(0, _occupants - 1);
         }
 
-        public Vector3 GetSleepPosition()
+        public Vector3 GetDoorThreshold()
         {
-            // Priorità: SleepPoint esplicito > calcolo da porta > fallback
-            if (_sleepPoint != null)
-            {
-                return _sleepPoint.position;
-            }
-
             if (_doorMesh != null)
             {
-                // Usa i bounds del renderer per la posizione reale della porta
+                var renderer = _doorMesh.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    // Calcoliamo un punto a circa 1 unità davanti alla porta (esterno)
+                    Vector3 doorWorldCenter = renderer.bounds.center;
+                    Vector3 towardHouse = (doorWorldCenter - transform.position).normalized;
+                    towardHouse.y = 0f;
+                    
+                    // Torniamo un punto fuori dalla porta (direzione opposta al centro casa)
+                    Vector3 outside = doorWorldCenter + towardHouse * 1.5f;
+                    outside.y = transform.position.y;
+                    return outside;
+                }
+            }
+            return transform.position - transform.forward * 2f;
+        }
+
+        public Vector3 GetSleepPosition()
+        {
+            // Se abbiamo un mesh della porta, calcoliamo il punto interno partendo dalla soglia
+            if (_doorMesh != null)
+            {
                 var renderer = _doorMesh.GetComponent<Renderer>();
                 if (renderer != null)
                 {
                     Vector3 doorWorldCenter = renderer.bounds.center;
-                    Vector3 towardDoor = doorWorldCenter - transform.position;
-                    towardDoor.y = 0f;
-                    if (towardDoor.sqrMagnitude > 0.001f)
-                    {
-                        // Spingiamo il target più all'interno (2.2 unità) per assicurarci che entri
-                        // Manteniamo la Y della porta o del pivot casa
-                        Vector3 threshold = doorWorldCenter - towardDoor.normalized * 2.2f;
-                        threshold.y = transform.position.y; 
-                        return threshold;
-                    }
+                    // Vettore che va dalla porta verso il centro della casa
+                    Vector3 toInside = (transform.position - doorWorldCenter).normalized;
+                    toInside.y = 0f;
+                    
+                    // Entriamo di 2.5 unità partendo dalla porta
+                    Vector3 inside = doorWorldCenter + toInside * 2.5f; 
+                    inside.y = transform.position.y; 
+                    return inside;
                 }
             }
 
-            // Fallback: davanti alla casa
-            Vector3 front = transform.position - transform.forward * 2f;
-            return front;
+            if (_sleepPoint != null) return _sleepPoint.position;
+            return transform.position;
         }
 
         // ── Porta ─────────────────────────────────────────────────────────

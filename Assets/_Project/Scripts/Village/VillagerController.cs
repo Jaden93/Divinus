@@ -68,6 +68,8 @@ namespace DivinePrototype
 
         // ── Stato interno sleep ────────────────────────────────────────
         private Vector3          _sleepTarget;
+        private Vector3          _doorThreshold;
+        private bool             _isEnteringHouse;
         private float            _sleepDuration;
         private float            _sleepTimer;
         private System.Action    _onWakeUp;
@@ -465,16 +467,18 @@ namespace DivinePrototype
             _targetDepotCtrl = null;
 
             _targetHouse   = house;
-            Vector3 rawSleepPos = house.GetSleepPosition();
             
-            // Riduciamo il raggio dell'agente per permettergli di passare in varchi stretti (la porta)
-            if (_agent != null) _agent.radius = 0.15f;
+            // FASE 1: Navigazione verso la soglia (esterna) della porta
+            _doorThreshold   = house.GetDoorThreshold();
+            _sleepTarget     = house.GetSleepPosition();
+            _isEnteringHouse = false;
 
-            // Snap al punto NavMesh più vicino per garantire raggiungibilità
-            if (NavMesh.SamplePosition(rawSleepPos, out NavMeshHit sleepHit, 4f, NavMesh.AllAreas))
-                _sleepTarget = sleepHit.position;
-            else
-                _sleepTarget = rawSleepPos;
+            // Assicuriamoci che l'agente sia attivo per la prima fase
+            if (_agent != null) 
+            {
+                _agent.enabled = true;
+                _agent.radius  = 0.3f; // Raggio normale per navigazione esterna
+            }
 
             _sleepDuration = house.sleepDuration;
             _sleepTimer    = 0f;
@@ -487,30 +491,45 @@ namespace DivinePrototype
 
         private void UpdateGoingToSleep()
         {
-            Vector3 target = _sleepTarget;
-            MoveTo(target);
-
-            // Calcola la distanza reale dal target (3D)
-            float dist = Vector3.Distance(transform.position, target);
-            
-            // Se siamo molto vicini (0.5f)
-            bool agentStopped = _agent != null && _agent.isOnNavMesh && !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f;
-            
-            if (dist <= 0.5f || agentStopped)
+            if (!_isEnteringHouse)
             {
-                StopAgent();
+                // FASE 1: Avvicinamento alla porta col NavMesh
+                MoveTo(_doorThreshold);
+
+                // Quando siamo vicini alla soglia (1.2 unità) passiamo alla fase 2
+                float distToDoor = Vector3.Distance(Flat(transform.position), Flat(_doorThreshold));
+                if (distToDoor <= 1.2f)
+                {
+                    _isEnteringHouse = true;
+                    // FASE 2: Entrata fisica. Disabilitiamo l'agente per ignorare il NavMesh della casa
+                    if (_agent != null) _agent.enabled = false;
+                    Debug.Log("[VillagerController] Arrivato alla soglia, procedo all'entrata fisica.");
+                }
+            }
+            else
+            {
+                // FASE 2: Movimento rettilineo verso l'interno (agente disabilitato)
+                // Usiamo una velocità leggermente superiore per l'entrata per evitare incertezze
+                transform.position = Vector3.MoveTowards(transform.position, _sleepTarget, moveSpeed * 1.2f * Time.deltaTime);
                 
-                // Disabilita l'agente per permettere il posizionamento esatto senza attriti
-                if (_agent != null) _agent.enabled = false;
+                // Rotazione verso il target
+                Vector3 dir = (_sleepTarget - transform.position).normalized;
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.001f)
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
 
-                CurrentState = VillagerState.Sleeping;
-                _sleepTimer  = 0f;
-                SetAnim(false, false);
+                float distToSleep = Vector3.Distance(transform.position, _sleepTarget);
+                if (distToSleep <= 0.2f)
+                {
+                    CurrentState = VillagerState.Sleeping;
+                    _sleepTimer  = 0f;
+                    SetAnim(false, false);
 
-                // Forza posizione finale esatta (usando la Y del target)
-                transform.position = _sleepTarget;
+                    // Forza posizione finale esatta
+                    transform.position = _sleepTarget;
 
-                _targetHouse?.CloseDoor();
+                    _targetHouse?.CloseDoor();
+                }
             }
         }
 
