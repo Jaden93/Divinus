@@ -32,8 +32,8 @@ namespace DivinePrototype
         [Header("Energia")]
         public float maxEnergy                   = 100f;
         public float energyDrainPerSecond        = 8f;
-        public float exhaustionThreshold         = 70f;
-        public float idleSleepThreshold          = 90f;   // va a riposare se idle con energia < questa soglia
+        public float exhaustionThreshold         = 20f;
+        public float idleSleepThreshold          = 40f;   // va a riposare se idle con energia < questa soglia
         public float restDuration                = 8f;    // riposo in place se non c'e' casa
         public float restRestoreAmount           = 60f;   // energia totale recuperata dal riposo in place
         public float sleepEnergyRestorePerSecond = 15f;   // energia per secondo durante il sonno in casa
