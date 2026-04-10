@@ -45,23 +45,27 @@ namespace DivinePrototype
 
             SetEnabled(false);
 
-            if (gameState != null)
+            if (ResourceManager.Instance != null)
             {
-                gameState.onWoodChanged.AddListener(OnWoodChanged);
-                // Controlla stato corrente già presente all'avvio
-                OnWoodChanged(gameState.WoodCount);
+                ResourceManager.Instance.wood.onChanged.AddListener(_ => OnResourcesChanged());
+                ResourceManager.Instance.stone.onChanged.AddListener(_ => OnResourcesChanged());
+                OnResourcesChanged();
             }
         }
 
         private void OnDestroy()
         {
-            if (gameState != null)
-                gameState.onWoodChanged.RemoveListener(OnWoodChanged);
+            if (ResourceManager.Instance != null)
+            {
+                ResourceManager.Instance.wood.onChanged.RemoveListener(_ => OnResourcesChanged());
+                ResourceManager.Instance.stone.onChanged.RemoveListener(_ => OnResourcesChanged());
+            }
         }
 
-        private void OnWoodChanged(int amount)
+        private void OnResourcesChanged()
         {
-            SetEnabled(amount >= benchCost);
+            if (ResourceManager.Instance == null) return;
+            SetEnabled(ResourceManager.Instance.HasResources(benchCost, 0));
         }
 
         // ── Placement mode (da menu circolare) ──────────────────────────
@@ -185,7 +189,21 @@ namespace DivinePrototype
         private void PlaceBench(Vector3 worldPos)
         {
             if (benchPrefab == null) { Debug.LogWarning("[BenchActionUI] benchPrefab non assegnato."); return; }
-            if (gameState == null || gameState.WoodCount < benchCost) { Debug.LogWarning("[BenchActionUI] Legna insufficiente."); return; }
+
+            if (ResourceManager.Instance != null)
+            {
+                if (!ResourceManager.Instance.HasResources(benchCost, 0))
+                {
+                    Debug.LogWarning("[BenchActionUI] Risorse insufficienti.");
+                    return;
+                }
+                ResourceManager.Instance.SpendResource("Wood", benchCost);
+            }
+            else if (gameState != null)
+            {
+                if (gameState.WoodCount < benchCost) return;
+                gameState.WoodCount -= benchCost;
+            }
 
             worldPos.y = 0f;
 
@@ -202,8 +220,6 @@ namespace DivinePrototype
                 obs.size    = new Vector3(1.5f, 1f, 0.8f);
                 obs.center  = new Vector3(0f, 0.5f, 0f);
             }
-
-            gameState.WoodCount -= benchCost;
 
             if (FloatingTextSpawner.Instance != null)
                 FloatingTextSpawner.Instance.Spawn("Bench placed!", worldPos, new Color(0.8f, 0.6f, 0.2f));

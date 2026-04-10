@@ -18,6 +18,7 @@ namespace DivinePrototype
 
         private void Start()
         {
+            Debug.Log("[DebugHUD] Start");
             if (gameState == null) gameState = FindObjectOfType<GameStateSystem>();
             _constructionSite = FindObjectOfType<ConstructionSite>();
             CreateEnergyButtons();
@@ -27,22 +28,58 @@ namespace DivinePrototype
         {
             var canvas = GetComponentInParent<Canvas>();
             if (canvas == null) canvas = FindObjectOfType<Canvas>();
-            if (canvas == null) return;
+            
+            if (canvas == null)
+            {
+                Debug.LogError("[DebugHUD] Nessun Canvas trovato in scena! I tasti di debug non verranno creati.");
+                return;
+            }
 
-            // Container bottom-left
+            Debug.Log($"[DebugHUD] Creazione tasti su Canvas: {canvas.name}");
+
+            // Container bottom-left (spostato un po' più su per evitare la barra di navigazione Android/iOS)
             var container = new GameObject("EnergyDebugButtons");
             container.transform.SetParent(canvas.transform, false);
             var crt = container.AddComponent<RectTransform>();
             crt.anchorMin        = new Vector2(0f, 0f);
             crt.anchorMax        = new Vector2(0f, 0f);
             crt.pivot            = new Vector2(0f, 0f);
-            crt.anchoredPosition = new Vector2(10f, 10f);
-            crt.sizeDelta        = new Vector2(180f, 50f);
+            crt.anchoredPosition = new Vector2(20f, 150f); // Alzato ancora un po'
+            crt.sizeDelta        = new Vector2(400f, 70f);
+
+            // Aggiungi un'immagine di sfondo semitrasparente per vedere il container
+            var bg = container.AddComponent<Image>();
+            bg.color = new Color(0, 0, 0, 0.3f);
 
             var layout = container.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing          = 8f;
-            layout.childForceExpandWidth  = false;
+            layout.padding = new RectOffset(5, 5, 5, 5);
+            layout.spacing          = 10f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth  = true;
             layout.childForceExpandHeight = true;
+
+            // Forza il container in primo piano
+            container.transform.SetAsLastSibling();
+
+            MakeButton(container.transform, "Social", new Color(1f, 0.5f, 0f), () =>
+            {
+                RefreshVillager();
+                if (_villager != null)
+                {
+                    DivineEventManager.Broadcast(new DivineEvent {
+                        Type     = DivineEventType.Smite,
+                        Position = _villager.transform.position,
+                        Target   = _villager.gameObject,
+                        Radius   = 20f
+                    });
+                    Debug.Log("[DebugHUD] Triggered Social Test (Smite) at villager position.");
+                }
+                else
+                {
+                    Debug.LogWarning("[DebugHUD] No villager found to test social reaction.");
+                }
+            });
 
             MakeButton(container.transform, "Drain", new Color(0.8f, 0.2f, 0.2f), () =>
             {
@@ -63,7 +100,7 @@ namespace DivinePrototype
             go.transform.SetParent(parent, false);
 
             var rt = go.AddComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(86f, 50f);
+            rt.sizeDelta = new Vector2(100f, 60f);
 
             go.AddComponent<CanvasRenderer>();
             var img   = go.AddComponent<Image>();
@@ -86,8 +123,10 @@ namespace DivinePrototype
             txt.alignment = TextAnchor.MiddleCenter;
             txt.fontSize  = 20;
             txt.color     = Color.white;
+            
+            // Usa il font legacy consigliato da Unity per evitare eccezioni
             Font f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            
             if (f != null) txt.font = f;
         }
 
@@ -101,13 +140,21 @@ namespace DivinePrototype
             RefreshVillager();
             if (hudText == null) return;
 
-            string wood      = gameState != null ? gameState.WoodCount.ToString() : "?";
+            string wood  = "?";
+            string stone = "?";
+
+            if (ResourceManager.Instance != null)
+            {
+                wood  = ResourceManager.Instance.wood.count.ToString();
+                stone = ResourceManager.Instance.stone.count.ToString();
+            }
+
             string axe       = gameState != null && gameState.HasAxe ? "YES" : "NO";
             string villState = _villager != null ? _villager.CurrentState.ToString() : "—";
             string energy    = _villager != null ? _villager.Energy.ToString("0") : "—";
             string house     = GetHouseStatus();
 
-            hudText.text = $"WOOD: {wood}\nVILLAGER: {villState}\nENERGY: {energy}\nAXE: {axe}\nHOUSE: {house}";
+            hudText.text = $"WOOD: {wood}\nSTONE: {stone}\nVILLAGER: {villState}\nENERGY: {energy}\nAXE: {axe}\nHOUSE: {house}";
         }
 
         private string GetHouseStatus()

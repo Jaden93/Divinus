@@ -36,20 +36,28 @@ namespace DivinePrototype
 
             SetEnabled(false);
 
-            if (gameState != null)
+            if (ResourceManager.Instance != null)
             {
-                gameState.onWoodChanged.AddListener(OnWoodChanged);
-                OnWoodChanged(gameState.WoodCount);
+                ResourceManager.Instance.wood.onChanged.AddListener(_ => OnResourcesChanged());
+                ResourceManager.Instance.stone.onChanged.AddListener(_ => OnResourcesChanged());
+                OnResourcesChanged();
             }
         }
 
         private void OnDestroy()
         {
-            if (gameState != null)
-                gameState.onWoodChanged.RemoveListener(OnWoodChanged);
+            if (ResourceManager.Instance != null)
+            {
+                ResourceManager.Instance.wood.onChanged.RemoveListener(_ => OnResourcesChanged());
+                ResourceManager.Instance.stone.onChanged.RemoveListener(_ => OnResourcesChanged());
+            }
         }
 
-        private void OnWoodChanged(int amount) => SetEnabled(amount >= depotCost);
+        private void OnResourcesChanged()
+        {
+            if (ResourceManager.Instance == null) return;
+            SetEnabled(ResourceManager.Instance.HasResources(depotCost, 0));
+        }
 
         // ── Placement mode ───────────────────────────────────────────────
 
@@ -142,7 +150,21 @@ namespace DivinePrototype
         private void PlaceDepot(Vector3 worldPos)
         {
             if (depotPrefab == null) { Debug.LogWarning("[WoodDepotActionUI] depotPrefab mancante."); return; }
-            if (gameState == null || gameState.WoodCount < depotCost) { Debug.LogWarning("[WoodDepotActionUI] Legna insufficiente."); return; }
+
+            if (ResourceManager.Instance != null)
+            {
+                if (!ResourceManager.Instance.HasResources(depotCost, 0))
+                {
+                    Debug.LogWarning("[WoodDepotActionUI] Risorse insufficienti.");
+                    return;
+                }
+                ResourceManager.Instance.SpendResource("Wood", depotCost);
+            }
+            else if (gameState != null)
+            {
+                if (gameState.WoodCount < depotCost) return;
+                gameState.WoodCount -= depotCost;
+            }
 
             worldPos.y = 0f;
             var depot = Object.Instantiate(depotPrefab, worldPos, Quaternion.identity);
@@ -157,7 +179,7 @@ namespace DivinePrototype
                 obs.center  = new Vector3(0f, 1f, 0f);
             }
 
-            gameState.WoodCount -= depotCost;
+            if (ResourceManager.Instance != null) ResourceManager.Instance.RefreshCaps();
 
             if (FloatingTextSpawner.Instance != null)
                 FloatingTextSpawner.Instance.Spawn("Depot built!", worldPos, new Color(0.9f, 0.6f, 0.1f));

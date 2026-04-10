@@ -25,10 +25,6 @@ namespace DivinePrototype
         {
             if (gameState == null) gameState = FindObjectOfType<GameStateSystem>();
 
-            var depot = WoodDepot.Instance;
-            if (depot != null)
-                depot.onConstructionReady.AddListener(OnConstructionReady);
-
             if (gameState != null)
                 gameState.onHouseBuilt.AddListener(OnHouseBuilt);
 
@@ -38,14 +34,8 @@ namespace DivinePrototype
                 n.onDepleted.AddListener(OnNodeDepleted);
             }
 
-            Debug.Log($"[ForestManager] {_nodes.Count} alberi | depot={depot != null} | gameState={gameState != null}");
+            Debug.Log($"[ForestManager] {_nodes.Count} alberi | ResourceManager={ResourceManager.Instance != null}");
             StartCoroutine(AssignTick());
-        }
-
-        private void OnConstructionReady()
-        {
-            // Non fermiamo più i worker: continuano fino al cap del depot
-            Debug.Log("[ForestManager] Legna sufficiente per costruire.");
         }
 
         private void OnHouseBuilt()
@@ -79,8 +69,11 @@ namespace DivinePrototype
             if (gameState == null || !gameState.HasAxe) return;
 
             // Rispetta il cap legna: non assegnare task se già al massimo
-            var depot = WoodDepot.Instance;
-            if (depot != null && depot.WoodCount >= depot.MaxWood) return;
+            if (ResourceManager.Instance != null)
+            {
+                var woodData = ResourceManager.Instance.wood;
+                if (woodData.count >= woodData.currentMax) return;
+            }
 
             var villagers = FindObjectsOfType<VillagerController>();
             foreach (var v in villagers)

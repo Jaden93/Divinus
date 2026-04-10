@@ -48,26 +48,20 @@ namespace DivinePrototype
 
             SetEnabled(false);
 
-            var depot = FindObjectOfType<WoodDepot>();
-            if (depot != null)
+            if (ResourceManager.Instance != null)
             {
-                depot.onConstructionReady.AddListener(OnConstructionReady);
-                depot.onWoodDeposited.AddListener(_ => RefreshEnabled());
-                if (depot.IsConstructionReady) OnConstructionReady();
+                ResourceManager.Instance.wood.onChanged.AddListener(_ => RefreshEnabled());
+                ResourceManager.Instance.stone.onChanged.AddListener(_ => RefreshEnabled());
+                RefreshEnabled();
             }
-
-            var gs = FindObjectOfType<GameStateSystem>();
-            if (gs != null)
-                gs.onWoodChanged.AddListener(_ => RefreshEnabled());
         }
-
-        private void OnConstructionReady() { SetEnabled(true); }
 
         private void RefreshEnabled()
         {
-            var depot = WoodDepot.Instance;
-            if (depot == null) return;
-            SetEnabled(depot.IsConstructionReady);
+            if (ResourceManager.Instance == null || constructionSite == null) return;
+            
+            bool canAfford = ResourceManager.Instance.HasResources(constructionSite.woodCost, constructionSite.stoneCost);
+            SetEnabled(canAfford);
         }
 
         // ── Placement mode (da menu circolare) ──────────────────────────

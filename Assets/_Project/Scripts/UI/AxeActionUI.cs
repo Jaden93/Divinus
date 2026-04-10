@@ -55,8 +55,7 @@ namespace DivinePrototype
             _canvasGroup = GetComponent<CanvasGroup>();
             if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
-            var depot = FindObjectOfType<WoodDepot>();
-            if (depot != null) depot.onConstructionReady.AddListener(OnWorkFinished);
+            SetDisabled(false);
         }
 
         // ── Assignment mode (da menu circolare) ─────────────────────────

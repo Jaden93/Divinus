@@ -103,6 +103,13 @@ namespace DivinePrototype
                     
                     StartCoroutine(FlashVillager(villager, new Color(1f, 0.9f, 0.1f), 0.3f));
                     Debug.Log($"[DivineActionSystem] Smite villager: {villager.name}");
+                    
+                    DivineEventManager.Broadcast(new DivineEvent { 
+                        Type = DivineEventType.Smite, 
+                        Position = villager.transform.position, 
+                        Target = villager.gameObject, 
+                        Radius = 20f 
+                    });
                     break;
 
                 case DivinePower.Revive:
@@ -112,6 +119,14 @@ namespace DivinePrototype
                         villager.Revive(0.5f);
                         StartCoroutine(FlashVillager(villager, new Color(0.8f, 1f, 0.8f), 1.0f));
                         Debug.Log($"[DivineActionSystem] Revive villager: {villager.name}");
+                        
+                        DivineEventManager.Broadcast(new DivineEvent { 
+                            Type = DivineEventType.Revive, 
+                            Position = villager.transform.position, 
+                            Target = villager.gameObject, 
+                            Radius = 15f 
+                        });
+                        
                         ClearPendingPower();
                     }
                     break;
@@ -217,12 +232,6 @@ namespace DivinePrototype
             mat.color = flashColor;
             yield return new WaitForSeconds(duration);
             if (mat != null) mat.color = original;
-        }
-
-
-    }
-}
-         if (mat != null) mat.color = original;
         }
 
 

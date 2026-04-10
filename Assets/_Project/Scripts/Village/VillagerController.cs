@@ -14,7 +14,8 @@ namespace DivinePrototype
             GoingToSleep, Sleeping,
             PickingUpAxe, PickingUpPickaxe,
             Resting, GoingToBench, Sitting,
-            Dead
+            Dead,
+            Investigating, Gathering, Messenger
         }
 
         [Header("Movement")]
@@ -194,6 +195,12 @@ namespace DivinePrototype
 
                 case VillagerState.Sitting:
                     UpdateSitting();
+                    break;
+
+                case VillagerState.Investigating:
+                case VillagerState.Gathering:
+                case VillagerState.Messenger:
+                    // Gestito da VillagerSocialReaction
                     break;
             }
         }
@@ -820,12 +827,9 @@ namespace DivinePrototype
                 VillagerState.GoingToBench => "-> Bench",
                 VillagerState.Sitting      => "Sitting",
                 VillagerState.Dead         => "Dead",
-                _                          => ""
-            };
-        }
-    }
-}
-illagerState.Dead         => "Dead",
+                VillagerState.Investigating => "Investigating",
+                VillagerState.Gathering    => "Gathering",
+                VillagerState.Messenger    => "Messenger",
                 _                          => ""
             };
         }

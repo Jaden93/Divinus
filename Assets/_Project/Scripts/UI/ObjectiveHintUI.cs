@@ -5,7 +5,7 @@ namespace DivinePrototype
 {
     /// <summary>
     /// Mostra un solo obiettivo attivo alla volta nella parte bassa dello schermo.
-    /// Avanza automaticamente ascoltando gli eventi di GameStateSystem.
+    /// Avanza automaticamente ascoltando gli eventi di GameStateSystem e ResourceManager.
     /// </summary>
     public class ObjectiveHintUI : MonoBehaviour
     {
@@ -13,13 +13,13 @@ namespace DivinePrototype
         public GameStateSystem gameState;
         public Text            hintText;
 
-        private enum Objective { GetAxe, CollectWood, BuildHouse, WatchRest, Done }
+        private enum Objective { GetAxe, CollectResources, BuildHouse, WatchRest, Done }
         private Objective _current = Objective.GetAxe;
 
         private static readonly string[] _hints = new[]
         {
             "Get the axe — drag it onto the villager",
-            "Collect enough wood (6 logs)",
+            "Collect wood and stone (6 wood, 3 stone)",
             "Build the first house — drag HOME 1 onto the ground",
             "Watch the villager rest in the house",
             ""
@@ -32,42 +32,55 @@ namespace DivinePrototype
             if (gameState != null)
             {
                 gameState.onAxeGranted.AddListener(OnAxeGranted);
-                gameState.onWoodChanged.AddListener(OnWoodChanged);
                 gameState.onHouseBuilt.AddListener(OnHouseBuilt);
             }
 
-            // Se il loop è già parzialmente avanzato (es. reset parziale), saltare gli step già fatti
+            if (ResourceManager.Instance != null)
+            {
+                ResourceManager.Instance.wood.onChanged.AddListener(OnResourcesChanged);
+                ResourceManager.Instance.stone.onChanged.AddListener(OnResourcesChanged);
+            }
+
+            // Se il loop è già parzialmente avanzato, saltare gli step già fatti
             FastForwardToCurrentState();
             RefreshText();
         }
 
         private void OnDestroy()
         {
-            if (gameState == null) return;
-            gameState.onAxeGranted.RemoveListener(OnAxeGranted);
-            gameState.onWoodChanged.RemoveListener(OnWoodChanged);
-            gameState.onHouseBuilt.RemoveListener(OnHouseBuilt);
+            if (gameState != null)
+            {
+                gameState.onAxeGranted.RemoveListener(OnAxeGranted);
+                gameState.onHouseBuilt.RemoveListener(OnHouseBuilt);
+            }
+
+            if (ResourceManager.Instance != null)
+            {
+                ResourceManager.Instance.wood.onChanged.RemoveListener(OnResourcesChanged);
+                ResourceManager.Instance.stone.onChanged.RemoveListener(OnResourcesChanged);
+            }
         }
 
         // ── Listeners ───────────────────────────────────────────────────
 
         private void OnAxeGranted()
         {
-            if (_current == Objective.GetAxe) AdvanceTo(Objective.CollectWood);
+            if (_current == Objective.GetAxe) AdvanceTo(Objective.CollectResources);
         }
 
-        private void OnWoodChanged(int amount)
+        private void OnResourcesChanged(int amount)
         {
-            if (_current == Objective.CollectWood && amount >= 6)
-                AdvanceTo(Objective.BuildHouse);
+            if (_current == Objective.CollectResources && ResourceManager.Instance != null)
+            {
+                if (ResourceManager.Instance.HasResources(6, 3))
+                    AdvanceTo(Objective.BuildHouse);
+            }
         }
 
         private void OnHouseBuilt()
         {
             if (_current == Objective.BuildHouse) AdvanceTo(Objective.WatchRest);
-            // "WatchRest" si chiude quando il villager si sveglia — per ora lo lasciamo
-            // attivo finché non viene implementato un evento di wake-up
-            Invoke(nameof(FinishRest), 15f); // 8s sleep + 7s margine
+            Invoke(nameof(FinishRest), 15f);
         }
 
         private void FinishRest()
@@ -92,9 +105,16 @@ namespace DivinePrototype
         private void FastForwardToCurrentState()
         {
             if (gameState == null) return;
-            if (gameState.HasHouse)          { _current = Objective.Done;        return; }
-            if (gameState.WoodCount >= 6)    { _current = Objective.BuildHouse;  return; }
-            if (gameState.HasAxe)            { _current = Objective.CollectWood; return; }
+            if (gameState.HasHouse) { _current = Objective.Done; return; }
+
+            bool enoughResources = false;
+            if (ResourceManager.Instance != null)
+                enoughResources = ResourceManager.Instance.HasResources(6, 3);
+            else
+                enoughResources = gameState.WoodCount >= 6;
+
+            if (enoughResources) { _current = Objective.BuildHouse; return; }
+            if (gameState.HasAxe) { _current = Objective.CollectResources; return; }
         }
     }
 }

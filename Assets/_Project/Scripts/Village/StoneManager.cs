@@ -54,8 +54,11 @@ namespace DivinePrototype
         private void TryAssignTasks()
         {
             // Rispetta il cap pietra: non assegnare task se già al massimo
-            var depot = StoneDepot.Instance;
-            if (depot != null && depot.StoneCount >= depot.MaxStone) return;
+            if (ResourceManager.Instance != null)
+            {
+                var stoneData = ResourceManager.Instance.stone;
+                if (stoneData.count >= stoneData.currentMax) return;
+            }
 
             var villagers = FindObjectsOfType<VillagerController>();
             foreach (var v in villagers)
@@ -66,19 +69,11 @@ namespace DivinePrototype
                 
                 if (!isFree) continue;
                 if (v.IsExhausted) continue;
-
-                // Per ora controlliamo se ha il piccone tramite un tag o un flag futuro
-                // Se non vogliamo toccare VillagerController, potremmo usare:
-                // if (!v.GetComponent<VillagerMiningAddon>().HasPickaxe) continue;
-                
-                // NOTA: Per ora lo commento per non rompere il build se HasPersonalPickaxe non esiste ancora
-                // if (!v.HasPersonalPickaxe) continue;
+                if (!v.HasPersonalPickaxe) continue;
 
                 StoneNode nearest = FindNearestIntactNode(v.transform.position);
                 if (nearest != null)
                 {
-                    // Assegna il task. Se VillagerController non supporta StoneNode,
-                    // dovremo estenderlo.
                     v.AssignResourceTask(nearest);
                     Debug.Log($"[StoneManager] Mining assegnato a {v.name} → {nearest.name}");
                 }

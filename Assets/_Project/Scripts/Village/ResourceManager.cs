@@ -100,6 +100,12 @@ namespace DivinePrototype
             return false;
         }
 
+        /// <summary>Verifica se ci sono abbastanza risorse di entrambi i tipi.</summary>
+        public bool HasResources(int woodAmount, int stoneAmount)
+        {
+            return wood.count >= woodAmount && stone.count >= stoneAmount;
+        }
+
         public ResourceData GetResourceData(string type)
         {
             if (type.ToLower() == "wood") return wood;

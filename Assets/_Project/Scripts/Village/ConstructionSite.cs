@@ -24,6 +24,7 @@ namespace DivinePrototype
 
         [Header("Costo")]
         public int woodCost = 6;
+        public int stoneCost = 3;
 
         [Header("Timer UI")]
         public Canvas uiCanvas;   // Assegna il Canvas radice della scena
@@ -50,12 +51,24 @@ namespace DivinePrototype
         public void StartConstruction(Vector3 worldPosition)
         {
             if (_building) return;
+
+            // Consuma le risorse
+            if (ResourceManager.Instance != null)
+            {
+                if (!ResourceManager.Instance.HasResources(woodCost, stoneCost))
+                {
+                    Debug.LogWarning("[ConstructionSite] Risorse insufficienti!");
+                    return;
+                }
+                ResourceManager.Instance.SpendResource("Wood", woodCost);
+                ResourceManager.Instance.SpendResource("Stone", stoneCost);
+            }
+            else
+            {
+                Debug.LogWarning("[ConstructionSite] ResourceManager non trovato!");
+            }
+
             _building = true;
-
-            // Consuma la legna
-            var depot = FindObjectOfType<WoodDepot>();
-            depot?.ConsumeWood(woodCost);
-
             Debug.Log("[ConstructionSite] Costruzione avviata a " + worldPosition);
             StartCoroutine(BuildRoutine(worldPosition));
         }
