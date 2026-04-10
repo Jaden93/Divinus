@@ -39,6 +39,10 @@ namespace DivinePrototype
         public float restRestoreAmount           = 60f;   
         public float sleepEnergyRestorePerSecond = 15f;   
 
+        [Header("Social")]
+        public float loyalty = 50f; // 0-100
+        public float perceptionRadius = 20f;
+
         // ── Stato pubblico ─────────────────────────────────────────────
         public VillagerState CurrentState { get; private set; } = VillagerState.Idle;
         public float Energy               { get; private set; }
@@ -785,6 +789,9 @@ namespace DivinePrototype
             GoIdleDirect();
         }
 
+        public void PauseWork() { StopAgent(); }
+        public void ResumeWork() { GoIdleDirect(); }
+
         public void SetEnergy(float value)
         {
             Energy = Mathf.Clamp(value, 0f, maxEnergy);
@@ -808,6 +815,12 @@ namespace DivinePrototype
                 VillagerState.GoingToBench => "-> Bench",
                 VillagerState.Sitting      => "Sitting",
                 VillagerState.Dead         => "Dead",
+                _                          => ""
+            };
+        }
+    }
+}
+illagerState.Dead         => "Dead",
                 _                          => ""
             };
         }
