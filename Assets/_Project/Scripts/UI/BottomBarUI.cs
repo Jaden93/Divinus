@@ -34,8 +34,9 @@ namespace DivinePrototype
         public HouseActionUI      houseActionUI;
         public BenchActionUI      benchActionUI;
         public WoodDepotActionUI  woodDepotActionUI;
-        public VillagerActionUI   maleVillagerActionUI;
-        public VillagerActionUI   femaleVillagerActionUI;
+        public VillagerActionUI   villagerActionUI;
+        public VillagerActionUI   dogActionUI; // Placeholder
+        public VillagerActionUI   catActionUI; // Placeholder
 
         private void Start()
         {
@@ -111,15 +112,17 @@ namespace DivinePrototype
         }
 
         /// <summary>
-        /// Divine menu: index 0 = Uomo (male), index 1 = Donna (female)
+        /// Divine menu: index 0 = Villager, index 1 = Dog, index 2 = Cat
         /// </summary>
         private void OnDivineItemSelected(int index)
         {
             RefreshColors();
-            if (index == 0 && maleVillagerActionUI != null)
-                maleVillagerActionUI.StartPlacementMode();
-            else if (index == 1 && femaleVillagerActionUI != null)
-                femaleVillagerActionUI.StartPlacementMode();
+            if (index == 0 && villagerActionUI != null)
+                villagerActionUI.StartPlacementMode();
+            else if (index == 1 && dogActionUI != null)
+                dogActionUI.StartPlacementMode();
+            else if (index == 2 && catActionUI != null)
+                catActionUI.StartPlacementMode();
         }
 
         // ── API pubblica ──────────────────────────────────────────────────
