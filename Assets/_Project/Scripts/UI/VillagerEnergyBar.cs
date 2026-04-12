@@ -17,7 +17,8 @@ namespace DivinePrototype
         private VillagerController _villager;
         private Camera             _cam;
         private Transform          _barRoot;
-        private RectTransform      _fill;
+        private RectTransform      _energyFill;
+        private RectTransform      _healthFill;
         private Text               _stateLabel;
 
         private void Start()
@@ -39,18 +40,28 @@ namespace DivinePrototype
             if (_villager == null) return;
 
             // Barra energia
-            if (_fill != null)
+            if (_energyFill != null)
             {
                 float ratio = _villager.Energy / _villager.maxEnergy;
-                _fill.anchorMax = new Vector2(ratio, 1f);
-                var img = _fill.GetComponent<Image>();
+                _energyFill.anchorMax = new Vector2(ratio, 1f);
+                var img = _energyFill.GetComponent<Image>();
+                if (img != null)
+                    img.color = Color.Lerp(Color.red, Color.yellow, ratio);
+            }
+
+            // Barra salute
+            if (_healthFill != null)
+            {
+                float ratio = _villager.Health / _villager.maxHealth;
+                _healthFill.anchorMax = new Vector2(ratio, 1f);
+                var img = _healthFill.GetComponent<Image>();
                 if (img != null)
                     img.color = Color.Lerp(Color.red, Color.green, ratio);
             }
 
-            // Label: [Personality] State | Loyalty: XX | Energy: YY
+            // Label: [Personality] State | Loyalty: XX
             if (_stateLabel != null)
-                _stateLabel.text = $"{_villager.GetStateLabel()} | Energy: {Mathf.RoundToInt(_villager.Energy)}";
+                _stateLabel.text = $"{_villager.GetStateLabel()}";
         }
 
         private void BuildHUD()
@@ -61,15 +72,13 @@ namespace DivinePrototype
             rootGO.transform.localPosition = new Vector3(0f, heightOffset, 0f);
             _barRoot = rootGO.transform;
 
-            // Canvas world-space — sizeDelta in "px", scale 0.01 → 1px = 0.01 world unit
-            // Pannello finale: 220px × 50px (piu' largo per info extra)
             var canvasGO = new GameObject("HUDCanvas");
             canvasGO.transform.SetParent(rootGO.transform, false);
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode  = RenderMode.WorldSpace;
             canvas.worldCamera = _cam;
             var canvasRT = canvasGO.GetComponent<RectTransform>();
-            canvasRT.sizeDelta    = new Vector2(240f, 50f);
+            canvasRT.sizeDelta    = new Vector2(240f, 70f); // Taller for two bars
             canvasRT.localPosition = Vector3.zero;
             canvasRT.localScale   = Vector3.one * 0.01f;
 
@@ -89,27 +98,38 @@ namespace DivinePrototype
             _stateLabel.color     = Color.white;
             _stateLabel.alignment = TextAnchor.MiddleCenter;
             var labelRT = labelGO.GetComponent<RectTransform>();
-            labelRT.anchorMin  = new Vector2(0f, 0.35f);
+            labelRT.anchorMin  = new Vector2(0f, 0.5f);
             labelRT.anchorMax  = new Vector2(1f, 1f);
             labelRT.offsetMin  = new Vector2(4f, 0f);
             labelRT.offsetMax  = new Vector2(-4f, 0f);
 
-            // Sfondo barra (inferiore)
-            var barBgGO = CreateImage(canvasGO.transform, "BarBG",
-                new Vector2(0f, 0f), new Vector2(1f, 0.3f),
-                new Vector2(6f, 4f), new Vector2(-6f, -4f),
+            // Sfondo barra salute (centrale)
+            var healthBgGO = CreateImage(canvasGO.transform, "HealthBG",
+                new Vector2(0f, 0.25f), new Vector2(1f, 0.45f),
+                new Vector2(6f, 2f), new Vector2(-6f, -2f),
                 new Color(0.15f, 0.15f, 0.15f, 1f));
 
-            // Fill barra
-            var fillGO = new GameObject("Fill");
-            fillGO.transform.SetParent(barBgGO.transform, false);
-            fillGO.AddComponent<CanvasRenderer>();
-            fillGO.AddComponent<Image>().color = Color.green;
-            _fill = fillGO.GetComponent<RectTransform>();
-            _fill.anchorMin = Vector2.zero;
-            _fill.anchorMax = Vector2.one;
-            _fill.offsetMin = new Vector2(1f, 1f);
-            _fill.offsetMax = new Vector2(-1f, -1f);
+            var hFillGO = new GameObject("HealthFill");
+            hFillGO.transform.SetParent(healthBgGO.transform, false);
+            hFillGO.AddComponent<CanvasRenderer>();
+            hFillGO.AddComponent<Image>().color = Color.green;
+            _healthFill = hFillGO.GetComponent<RectTransform>();
+            _healthFill.anchorMin = Vector2.zero; _healthFill.anchorMax = Vector2.one;
+            _healthFill.offsetMin = new Vector2(1f, 1f); _healthFill.offsetMax = new Vector2(-1f, -1f);
+
+            // Sfondo barra energia (inferiore)
+            var energyBgGO = CreateImage(canvasGO.transform, "EnergyBG",
+                new Vector2(0f, 0.05f), new Vector2(1f, 0.25f),
+                new Vector2(6f, 2f), new Vector2(-6f, -2f),
+                new Color(0.15f, 0.15f, 0.15f, 1f));
+
+            var eFillGO = new GameObject("EnergyFill");
+            eFillGO.transform.SetParent(energyBgGO.transform, false);
+            eFillGO.AddComponent<CanvasRenderer>();
+            eFillGO.AddComponent<Image>().color = Color.yellow;
+            _energyFill = eFillGO.GetComponent<RectTransform>();
+            _energyFill.anchorMin = Vector2.zero; _energyFill.anchorMax = Vector2.one;
+            _energyFill.offsetMin = new Vector2(1f, 1f); _energyFill.offsetMax = new Vector2(-1f, -1f);
         }
 
         private static GameObject CreateImage(Transform parent, string name,

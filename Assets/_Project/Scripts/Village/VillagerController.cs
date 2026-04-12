@@ -16,7 +16,8 @@ namespace DivinePrototype
             Resting, GoingToBench, Sitting,
             Dead,
             Investigating, Gathering, Messenger,
-            PickingUpCorpse, CarryingCorpse, Burying
+            PickingUpCorpse, CarryingCorpse, Burying,
+            Confronting
         }
 
         [Header("Personality")]
@@ -37,14 +38,38 @@ namespace DivinePrototype
         public GameObject miningVFXPrefab; 
         private float _vfxTimer = 0f;
 
-        [Header("Energia")]
+        [Header("Energia e Salute")]
+        public float maxHealth                   = 100f;
+        public float Health                      { get; private set; }
         public float maxEnergy                   = 100f;
+        public float Energy               { get; private set; }
         public float energyDrainPerSecond        = 8f;
         public float exhaustionThreshold         = 20f;
         public float idleSleepThreshold          = 40f;   
         public float restDuration                = 8f;    
         public float restRestoreAmount           = 60f;   
         public float sleepEnergyRestorePerSecond = 15f;   
+
+        public void ModifyHealth(float amount)
+        {
+            if (CurrentState == VillagerState.Dead) return;
+            
+            float oldHealth = Health;
+            Health = Mathf.Clamp(Health + amount, 0f, maxHealth);
+
+            // Visual feedback for damage/healing
+            if (Mathf.Abs(Health - oldHealth) > 0.5f && FloatingTextSpawner.Instance != null)
+            {
+                string sign = amount > 0 ? "+" : "";
+                Color color = amount > 0 ? Color.green : Color.red;
+                FloatingTextSpawner.Instance.Spawn($"{sign}{amount:F0} HP", transform.position + Vector3.up * 2.5f, color);
+            }
+
+            if (Health <= 0)
+            {
+                Die();
+            }
+        }
 
         [Header("Social")]
         [Range(0, 100)]
@@ -128,12 +153,17 @@ namespace DivinePrototype
             {
                 gameObject.AddComponent<VillagerGroundEffectController>();
             }
+if (GetComponent<VillagerAuraInfluence>() == null)
+{
+    gameObject.AddComponent<VillagerAuraInfluence>();
+}
 
-            if (GetComponent<VillagerAuraInfluence>() == null)
-            {
-                gameObject.AddComponent<VillagerAuraInfluence>();
-            }
+if (GetComponent<VillagerVision>() == null)
+{
+    gameObject.AddComponent<VillagerVision>();
+}
 
+if (_agent != null)
             if (GetComponent<VillagerEnergyBar>() == null)
             {
                 gameObject.AddComponent<VillagerEnergyBar>();
@@ -145,11 +175,11 @@ namespace DivinePrototype
                 _agent.stoppingDistance      = waypointStopDistance;
                 _agent.angularSpeed          = 360f;
                 _agent.acceleration          = 10f;
-                _agent.radius                = 0.3f;
+                _agent.radius                = 0.4f; // Buffer increased (collider is 0.3)
                 _agent.height                = 2.0f;
                 _agent.baseOffset            = 0f; 
-                _agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
-                _agent.avoidancePriority     = Random.Range(30, 70);
+                _agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                _agent.avoidancePriority     = Random.Range(40, 60);
             }
 
             var col = GetComponent<CapsuleCollider>();
@@ -162,6 +192,7 @@ namespace DivinePrototype
             }
 
             Energy = maxEnergy;
+            Health = maxHealth;
 
             // Inizializza personalità casuale
             if (personality == null || personality.primaryTrait == PersonalityTrait.Standard)
@@ -177,6 +208,16 @@ namespace DivinePrototype
         private void Update()
         {
             if (CurrentState == VillagerState.Dead) return;
+
+            UpdateAvoidancePriority();
+            if (IsMovingState(CurrentState)) PredictiveAvoidance();
+
+            // Update Animator based on actual NavMeshAgent velocity
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                bool isActuallyMoving = _agent.velocity.sqrMagnitude > 0.01f;
+                _animator.SetBool(ParamWalking, isActuallyMoving);
+            }
 
             // Angel (Loyalty > 99) doesn't lose energy
             if (loyalty < 99f)
@@ -1010,6 +1051,75 @@ namespace DivinePrototype
         public void SetEnergy(float value)
         {
             Energy = Mathf.Clamp(value, 0f, maxEnergy);
+        }
+
+        private void UpdateAvoidancePriority()
+        {
+            if (_agent == null) return;
+
+            // High priority (low number) for stationary/critical states
+            // Low priority (high number) for moving states
+            bool isStationary = CurrentState == VillagerState.Idle || 
+                                CurrentState == VillagerState.ChoppingWood || 
+                                CurrentState == VillagerState.MiningStone ||
+                                CurrentState == VillagerState.Sitting ||
+                                CurrentState == VillagerState.Sleeping ||
+                                CurrentState == VillagerState.Resting;
+
+            _agent.avoidancePriority = isStationary ? 30 : 50;
+        }
+
+        private void PredictiveAvoidance()
+        {
+            if (_agent == null || !_agent.isOnNavMesh || !_agent.hasPath) return;
+
+            // Simple raycast/spherecast forward to detect imminent collisions
+            Vector3 rayOrigin = transform.position + Vector3.up * 0.5f;
+            Vector3 rayDir = _agent.velocity.normalized;
+            if (rayDir.sqrMagnitude < 0.01f) rayDir = transform.forward;
+
+            float checkDist = 2.0f;
+            float checkRadius = 0.5f;
+            
+            // Mask for other villagers and default obstacles
+            int mask = LayerMask.GetMask("Default"); 
+
+            if (Physics.SphereCast(rayOrigin, checkRadius, rayDir, out RaycastHit hit, checkDist, mask))
+            {
+                if (hit.collider.gameObject == gameObject) return;
+
+                // If something is in front, try to "nudge" the destination slightly to the side
+                Vector3 cross = Vector3.Cross(Vector3.up, rayDir).normalized;
+                
+                // Decide side based on hit normal or just right
+                Vector3 offset = cross * 1.5f;
+                if (Vector3.Dot(hit.normal, cross) < 0) offset = -cross * 1.5f;
+
+                Vector3 newTempDest = transform.position + rayDir * 2.0f + offset;
+
+                if (NavMesh.SamplePosition(newTempDest, out NavMeshHit navHit, 2.0f, NavMesh.AllAreas))
+                {
+                    // Apply a slight steering force by updating destination if we are very close to a collision
+                    if (hit.distance < 1.0f)
+                    {
+                        _agent.SetDestination(navHit.position);
+                    }
+                }
+            }
+        }
+
+        private bool IsMovingState(VillagerState state)
+        {
+            return state == VillagerState.Walking || 
+                   state == VillagerState.CarryingWood || 
+                   state == VillagerState.CarryingStone ||
+                   state == VillagerState.GoingToSleep ||
+                   state == VillagerState.PickingUpAxe ||
+                   state == VillagerState.PickingUpPickaxe ||
+                   state == VillagerState.GoingToBench ||
+                   state == VillagerState.Investigating ||
+                   state == VillagerState.Messenger ||
+                   state == VillagerState.CarryingCorpse;
         }
 
         public string GetStateLabel()

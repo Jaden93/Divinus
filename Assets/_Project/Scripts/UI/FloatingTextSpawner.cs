@@ -19,39 +19,52 @@ namespace DivinePrototype
         private void Awake()
         {
             Instance = this;
-            if (rootCanvas  == null) rootCanvas  = FindObjectOfType<Canvas>();
-            if (mainCamera  == null) mainCamera  = Camera.main;
+            if (mainCamera == null) mainCamera = Camera.main;
+            
+            if (rootCanvas == null)
+            {
+                // Cerchiamo un canvas che NON sia quello sopra la testa dei villager
+                foreach (var c in FindObjectsOfType<Canvas>())
+                {
+                    if (c.renderMode != RenderMode.WorldSpace)
+                    {
+                        rootCanvas = c;
+                        break;
+                    }
+                }
+            }
         }
 
-        /// <summary>
-        /// worldPos: posizione 3D da cui parte il testo.
-        /// text: stringa da mostrare.
-        /// color: colore del testo.
-        /// </summary>
         public void Spawn(string text, Vector3 worldPos, Color color)
         {
-            if (rootCanvas == null || mainCamera == null) return;
+            if (mainCamera == null) mainCamera = Camera.main;
+            if (rootCanvas == null) return;
             StartCoroutine(AnimateText(text, worldPos, color));
         }
 
         private IEnumerator AnimateText(string text, Vector3 worldPos, Color color)
         {
-            // Crea il GameObject testo nel canvas
-            var go = new GameObject("FloatingText");
+            var go = new GameObject("FloatingText_" + text);
             go.transform.SetParent(rootCanvas.transform, false);
+            go.transform.SetAsLastSibling(); // Porta in primo piano
 
             var rt = go.AddComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(200f, 40f);
+            rt.sizeDelta = new Vector2(300f, 100f);
             rt.pivot     = new Vector2(0.5f, 0.5f);
 
             go.AddComponent<CanvasRenderer>();
             var txt       = go.AddComponent<Text>();
             txt.text      = text;
-            txt.fontSize  = 24;
+            txt.fontSize  = 40; // Più grande!
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color     = color;
             txt.raycastTarget = false;
+            
+            // Aggiungiamo un contorno per la leggibilità
+            var outline = go.AddComponent<Outline>();
+            outline.effectColor = Color.black;
+            outline.effectDistance = new Vector2(2, -2);
 
             Font f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");

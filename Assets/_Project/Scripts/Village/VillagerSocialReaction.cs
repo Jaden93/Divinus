@@ -231,6 +231,125 @@ namespace DivinePrototype
             _controller.ResumeWork();
         }
 
+        public void OnSeeVillager(VillagerController other)
+        {
+            if (_controller.CurrentState != VillagerController.VillagerState.Idle && 
+                _controller.CurrentState != VillagerController.VillagerState.Walking) return;
+
+            // Ideology Confrontation Logic
+            bool iAmHeretic = _controller.loyalty <= 20f; // Relaxed threshold
+            bool iAmHoly = _controller.loyalty >= 80f; // Relaxed threshold
+            bool otherIsHeretic = other.loyalty <= 20f;
+            bool otherIsHoly = other.loyalty >= 80f;
+
+            // 1. Heretic sees Holy: Provocation (Much higher chance)
+            if (iAmHeretic && otherIsHoly)
+            {
+                if (Random.value > 0.2f) StartCoroutine(ConfrontRoutine(other, true));
+            }
+            // 2. Holy sees Heretic: Attempt to Calm/Convert (Much higher chance)
+            else if (iAmHoly && otherIsHeretic)
+            {
+                if (Random.value > 0.2f) StartCoroutine(ConfrontRoutine(other, false));
+            }
+        }
+
+        private IEnumerator ConfrontRoutine(VillagerController target, bool isAggressor)
+        {
+            if (_controller.CurrentState == VillagerController.VillagerState.Confronting) yield break;
+            
+            _controller.PauseWork();
+            _controller.SetSocialState(VillagerController.VillagerState.Confronting);
+            
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn(isAggressor ? "💢 HEY YOU!" : "🙏 Peace...", transform.position + Vector3.up * 2.5f, isAggressor ? Color.red : Color.yellow);
+
+            // Move towards target faster
+            float timeout = 5f;
+            while (Vector3.Distance(transform.position, target.transform.position) > 1.5f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(target.transform.position, 1.5f);
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            if (timeout <= 0) { _controller.ResumeWork(); yield break; }
+
+            _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+            
+            // Look at each other
+            Vector3 lookDir = (target.transform.position - transform.position).normalized;
+            lookDir.y = 0;
+            if (lookDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(lookDir);
+
+            // Confrontation Phase shorter
+            float confrontTimer = 3f;
+            while (confrontTimer > 0)
+            {
+                confrontTimer -= 1.0f;
+                if (FloatingTextSpawner.Instance != null)
+                {
+                    string emoji = isAggressor ? "😡" : "✨";
+                    FloatingTextSpawner.Instance.Spawn(emoji, transform.position + Vector3.up * 2.5f, isAggressor ? Color.red : Color.cyan);
+                }
+                yield return new WaitForSeconds(1.0f);
+            }
+
+            // High probability of escalation
+            if (isAggressor && Random.value > 0.3f)
+            {
+                StartCoroutine(BrawlRoutine(target));
+            }
+            else if (!isAggressor && Random.value > 0.7f) // Even holy ones can lose patience or the heretic attacks anyway
+            {
+                 StartCoroutine(BrawlRoutine(target));
+            }
+            else
+            {
+                _controller.ResumeWork();
+            }
+        }
+
+        private IEnumerator BrawlRoutine(VillagerController target)
+        {
+            Debug.Log($"[Social] BRAWL started between {name} and {target.name}!");
+            _controller.SetSocialState(VillagerController.VillagerState.Confronting);
+            
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("👊 BRAWL!", transform.position + Vector3.up * 3f, Color.red);
+
+            float brawlTimer = 10f;
+            while (brawlTimer > 0 && target.Health > 0 && _controller.Health > 0)
+            {
+                brawlTimer -= 1f;
+                
+                // Visual feedback
+                if (FloatingTextSpawner.Instance != null)
+                    FloatingTextSpawner.Instance.Spawn("💢", transform.position + Random.insideUnitSphere + Vector3.up * 2f, Color.red);
+
+                // Target loses HP
+                float damage = Random.Range(5f, 12f);
+                target.ModifyHealth(-damage);
+
+                // Target fights back (unless very altruistic/saintly or exhausted)
+                if (target.Health > 0 && target.loyalty < 95f)
+                {
+                    _controller.ModifyHealth(-damage * 0.5f);
+                }
+
+                // Santo invokes help
+                if (target.loyalty >= 80f && target.Health < 40f)
+                {
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("🙏 HELP ME GOD!", target.transform.position + Vector3.up * 3.5f, Color.yellow);
+                }
+                
+                yield return new WaitForSeconds(1f);
+            }
+
+            _controller.ResumeWork();
+        }
+
         private void HandleDivineEvent(DivineEvent e)
         {
             if (_controller.CurrentState == VillagerController.VillagerState.Dead) return;
