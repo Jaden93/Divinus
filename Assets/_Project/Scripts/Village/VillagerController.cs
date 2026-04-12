@@ -30,6 +30,8 @@ namespace DivinePrototype
         [Header("Work")]
         public float chopDuration     = 3f;
         public float taskStopDistance = 1.5f;
+        public GameObject miningVFXPrefab; 
+        private float _vfxTimer = 0f;
 
         [Header("Energia")]
         public float maxEnergy                   = 100f;
@@ -216,8 +218,10 @@ namespace DivinePrototype
 
         private void GoIdle()
         {
+            // Se l'energia è bassa (anche se non ancora esausto), preferisce andare a riposare se non ha nulla da fare
             if (Energy < idleSleepThreshold)
             {
+                Debug.Log($"[VillagerController] {name} è stanco (Energy: {Energy:F0}), cerca riposo preventivo.");
                 StartAutoSleep();
                 return;
             }
@@ -380,10 +384,21 @@ namespace DivinePrototype
             {
                 SetAnim(false, false, true);
                 _chopTimer += Time.deltaTime;
+                _vfxTimer  += Time.deltaTime;
                 Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
+
+                // Spawn VFX every 0.8 seconds during mining
+                if (miningVFXPrefab != null && _vfxTimer >= 0.8f)
+                {
+                    _vfxTimer = 0f;
+                    Vector3 spawnPos = Vector3.Lerp(transform.position, _targetResource.transform.position, 0.7f) + Vector3.up * 0.5f;
+                    GameObject vfx = Instantiate(miningVFXPrefab, spawnPos, Quaternion.LookRotation(transform.position - _targetResource.transform.position));
+                    Destroy(vfx, 1.5f);
+                }
 
                 if (_chopTimer >= chopDuration)
                 {
+                    _vfxTimer = 0f;
                     int spaceLeft = 1;
                     if (rm != null) 
                     {
@@ -391,16 +406,19 @@ namespace DivinePrototype
                         if (d != null) spaceLeft = d.currentMax - d.count;
                     }
                     _carriedStoneAmount = _targetResource.TakeResource(spaceLeft);
-                    GoCarryingStone();
-                    return;
-                }
 
-                if (IsExhausted)
-                {
-                    if (_targetResource != null) _targetResource.Release();
-                    _targetResource = null;
-                    _targetDepot    = null;
-                    StartAutoSleep();
+                    if (IsExhausted)
+                    {
+                        Debug.Log($"[VillagerController] {name} ha finito di minare ma è esausto. Va a dormire.");
+                        if (_targetResource != null) _targetResource.Release();
+                        _targetResource = null; _targetDepot = null;
+                        StartAutoSleep();
+                    }
+                    else
+                    {
+                        GoCarryingStone();
+                    }
+                    return;
                 }
             }
         }
@@ -440,7 +458,8 @@ namespace DivinePrototype
                 _carriedWoodAmount = 0;
                 _targetResource = null;
                 _targetDepot    = null;
-                if (IsExhausted) StartAutoSleep(); else GoIdleDirect();
+                // Dopo aver consegnato, controlliamo se siamo stanchi
+                if (IsExhausted) StartAutoSleep(); else GoIdle();
             }
         }
 
@@ -465,7 +484,8 @@ namespace DivinePrototype
                 _carriedStoneAmount = 0;
                 _targetResource = null;
                 _targetDepot    = null;
-                if (IsExhausted) StartAutoSleep(); else GoIdleDirect();
+                Debug.Log($"[VillagerController] {name} consegnato Stone. Energy attuale: {Energy:F1}");
+                if (IsExhausted) StartAutoSleep(); else GoIdle();
             }
         }
 
@@ -769,6 +789,23 @@ namespace DivinePrototype
 
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
+        // ── Debug ──────────────────────────────────────────────────────
+
+        private void OnDrawGizmos()
+        {
+            if (_agent == null || !_agent.hasPath) return;
+
+            var path = _agent.path;
+            if (path.corners == null || path.corners.Length < 2) return;
+
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < path.corners.Length - 1; i++)
+            {
+                Gizmos.DrawLine(path.corners[i], path.corners[i + 1]);
+                Gizmos.DrawSphere(path.corners[i + 1], 0.15f);
+            }
+        }
+
         // ── API pubblica ──────────────────────────────────────────────
 
         public void Die()
@@ -780,6 +817,17 @@ namespace DivinePrototype
             _targetResource = null; _targetBench = null; _targetHouse = null;
             StopAgent();
             CurrentState = VillagerState.Dead;
+
+            // Adjust collider to match fallen body
+            var col = GetComponent<CapsuleCollider>();
+            if (col != null)
+            {
+                col.direction = 2; // Z-axis (lying down forward)
+                col.center = new Vector3(0, 0.2f, 1.2f); 
+                col.height = 2.0f;
+                col.radius = 0.5f;
+            }
+
             if (_animator != null) _animator.SetTrigger(ParamDying);
             Debug.Log($"[VillagerController] {name} is DEAD.");
         }
@@ -787,6 +835,24 @@ namespace DivinePrototype
         public void Revive(float energyPercent)
         {
             if (CurrentState != VillagerState.Dead) return;
+
+            // Reset collider to standing position
+            var col = GetComponent<CapsuleCollider>();
+            if (col != null)
+            {
+                col.direction = 1; // Y-axis (standing up)
+                col.center = new Vector3(0, 1.0f, 0);
+                col.height = 2.0f;
+                col.radius = 0.3f;
+            }
+
+            // Force Animator back to default state (Idle)
+            if (_animator != null)
+            {
+                _animator.Rebind();
+                _animator.Update(0f);
+            }
+
             Energy = maxEnergy * energyPercent;
             SetVisibility(true);
             GoIdleDirect();
@@ -801,8 +867,43 @@ namespace DivinePrototype
             GoIdleDirect();
         }
 
+        public void ModifyLoyalty(float amount)
+        {
+            if (CurrentState == VillagerState.Dead) return;
+            float old = loyalty;
+            loyalty = Mathf.Clamp(loyalty + amount, 0f, 100f);
+            
+            if (Mathf.Abs(loyalty - old) >= 0.5f && FloatingTextSpawner.Instance != null)
+            {
+                string sign = amount > 0 ? "+" : "";
+                Color color = amount > 0 ? Color.green : Color.red;
+                FloatingTextSpawner.Instance.Spawn($"{sign}{amount:F0} Loyalty", transform.position + Vector3.up * 3.0f, color);
+            }
+        }
+
+        public void SetSocialState(VillagerState state)
+        {
+            if (CurrentState == VillagerState.Dead) return;
+            CurrentState = state;
+            
+            // Basic animation handling for social states
+            if (state == VillagerState.Investigating || state == VillagerState.Messenger)
+                SetAnim(true, false);
+            else
+                SetAnim(false, false);
+        }
+
+        public void MoveToSocialTarget(Vector3 target, float speedMultiplier = 1.0f)
+        {
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.speed = moveSpeed * speedMultiplier;
+                MoveTo(target);
+            }
+        }
+
         public void PauseWork() { StopAgent(); }
-        public void ResumeWork() { GoIdleDirect(); }
+        public void ResumeWork() { _agent.speed = moveSpeed; GoIdleDirect(); }
 
         public void SetEnergy(float value)
         {

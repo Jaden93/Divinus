@@ -223,7 +223,16 @@ namespace DivinePrototype
         {
             if (_previewInstance == null) return;
             foreach (var r in _previewInstance.GetComponentsInChildren<Renderer>())
-                foreach (var mat in r.materials) mat.color = c;
+            {
+                foreach (var mat in r.materials)
+                {
+                    // For URP Lit shader, the main color is usually _BaseColor
+                    if (mat.HasProperty("_BaseColor"))
+                        mat.SetColor("_BaseColor", c);
+                    else
+                        mat.color = c;
+                }
+            }
         }
 
         // ── Helpers ──────────────────────────────────────────────────────
@@ -258,9 +267,18 @@ namespace DivinePrototype
 
         private bool WasTappedOnWorld(Vector2 sp)
         {
-            if (!GetTapThisFrame(out _)) return false;
+            if (!WasReleasedThisFrame()) return false;
             if (EventSystem.current != null) return !EventSystem.current.IsPointerOverGameObject();
             return true;
+        }
+
+        private bool WasReleasedThisFrame()
+        {
+            var touch = UnityEngine.InputSystem.Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasReleasedThisFrame) return true;
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null && mouse.leftButton.wasReleasedThisFrame) return true;
+            return false;
         }
 
         private Vector3 ScreenToGround(Vector2 sp)
@@ -273,15 +291,32 @@ namespace DivinePrototype
         private void SetTransparent(GameObject go, float alpha)
         {
             foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
                 foreach (var mat in r.materials)
                 {
-                    mat.SetFloat("_Surface", 1f);
+                    // URP standard properties for transparency
+                    mat.SetFloat("_Surface", 1f); // 1 = Transparent
                     mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                     mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                     mat.SetInt("_ZWrite", 0);
                     mat.renderQueue = 3000;
-                    Color c = mat.color; c.a = alpha; mat.color = c;
+                    
+                    Color c = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color;
+                    c.a = alpha;
+                    
+                    if (mat.HasProperty("_BaseColor"))
+                        mat.SetColor("_BaseColor", c);
+                    else
+                        mat.color = c;
+                        
+                    // Make it pop a bit even if dark
+                    if (mat.HasProperty("_EmissionColor"))
+                    {
+                        mat.EnableKeyword("_EMISSION");
+                        mat.SetColor("_EmissionColor", c * 0.3f);
+                    }
                 }
+            }
         }
     }
 }

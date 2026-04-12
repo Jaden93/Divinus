@@ -317,10 +317,11 @@ MonoBehaviour:
   idleMaxDuration: 4
   chopDuration: 3
   taskStopDistance: 1.5
+  miningVFXPrefab: {fileID: 0}
   maxEnergy: 100
   energyDrainPerSecond: 8
-  exhaustionThreshold: 70
-  idleSleepThreshold: 90
+  exhaustionThreshold: 20
+  idleSleepThreshold: 30
   restDuration: 8
   restRestoreAmount: 60
   sleepEnergyRestorePerSecond: 15

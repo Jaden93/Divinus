@@ -36,61 +36,111 @@ namespace DivinePrototype
         private IEnumerator ReactToEvent()
         {
             _controller.PauseWork();
-            Debug.Log($"[Social] {name} reacted to {_lastEventType}!");
+            bool isScary = _lastEventType == DivineEventType.Smite;
             
-            // Phase 1: Investigating (Move to spot)
-            Vector3 investigatePos = _eventPos + Random.insideUnitSphere * 2f;
-            investigatePos.y = _controller.transform.position.y;
-            
-            yield return new WaitForSeconds(Random.Range(0.2f, 1f));
+            // Loyalty Impact
+            float loyaltyImpact = isScary ? -15f : (_lastEventType == DivineEventType.Revive ? 20f : 5f);
+            _controller.ModifyLoyalty(loyaltyImpact);
 
-            float timeout = 5f;
-            while(Vector3.Distance(_controller.transform.position, investigatePos) > 1.5f && timeout > 0)
+            // Initial emoji reaction
+            if (FloatingTextSpawner.Instance != null)
             {
-                _controller.transform.position = Vector3.MoveTowards(_controller.transform.position, investigatePos, _controller.moveSpeed * Time.deltaTime);
-                Vector3 dir = (investigatePos - _controller.transform.position).normalized;
-                dir.y = 0;
-                if(dir.sqrMagnitude > 0.01f) 
-                {
-                    _controller.transform.rotation = Quaternion.Slerp(_controller.transform.rotation, Quaternion.LookRotation(dir), 5f * Time.deltaTime);
-                }
-                timeout -= Time.deltaTime;
-                yield return null;
+                string emoji = isScary ? "😱" : (_lastEventType == DivineEventType.Revive ? "👼" : "✨");
+                Color color = isScary ? Color.red : (_lastEventType == DivineEventType.Revive ? Color.yellow : Color.cyan);
+                FloatingTextSpawner.Instance.Spawn(emoji, transform.position + Vector3.up * 2.5f, color);
             }
 
-            // Phase 2: Gathering
-            Vector3 lookDir = (_eventPos - _controller.transform.position).normalized;
-            lookDir.y = 0;
-            if(lookDir.sqrMagnitude > 0.01f) 
+            if (isScary)
             {
-                _controller.transform.rotation = Quaternion.LookRotation(lookDir);
-            }
-            
-            yield return new WaitForSeconds(Random.Range(3f, 6f));
-
-            // Phase 3: Messenger
-            if (Random.value > 0.6f)
-            {
-                Debug.Log($"[Social] {name} became a messenger!");
-                Vector3 runAway = _controller.transform.position - (_eventPos - _controller.transform.position).normalized * 10f;
-                runAway.y = _controller.transform.position.y;
+                Debug.Log($"[Social] {name} is TERRORIZED by {_lastEventType}!");
+                _controller.SetSocialState(VillagerController.VillagerState.Messenger);
                 
-                timeout = 4f;
-                while(Vector3.Distance(_controller.transform.position, runAway) > 1.5f && timeout > 0)
+                // Flee from event
+                Vector3 fleeDir = (transform.position - _eventPos).normalized;
+                if (fleeDir.sqrMagnitude < 0.1f) fleeDir = Random.onUnitSphere;
+                Vector3 fleePos = transform.position + fleeDir * 12f;
+                
+                if (UnityEngine.AI.NavMesh.SamplePosition(fleePos, out UnityEngine.AI.NavMeshHit hit, 10f, UnityEngine.AI.NavMesh.AllAreas))
+                    fleePos = hit.position;
+
+                float timeout = 4f;
+                while (Vector3.Distance(transform.position, fleePos) > 1.5f && timeout > 0)
                 {
-                    _controller.transform.position = Vector3.MoveTowards(_controller.transform.position, runAway, _controller.moveSpeed * 1.5f * Time.deltaTime);
-                    Vector3 dir = (runAway - _controller.transform.position).normalized;
-                    dir.y = 0;
-                    if(dir.sqrMagnitude > 0.01f) 
-                    {
-                        _controller.transform.rotation = Quaternion.Slerp(_controller.transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
-                    }
+                    _controller.MoveToSocialTarget(fleePos, 2.0f);
                     timeout -= Time.deltaTime;
                     yield return null;
+                }
+
+                yield return new WaitForSeconds(Random.Range(2f, 4f));
+            }
+            else
+            {
+                Debug.Log($"[Social] {name} is CURIOUS about {_lastEventType}!");
+                _controller.SetSocialState(VillagerController.VillagerState.Investigating);
+                
+                Vector3 investigatePos = _eventPos + Random.insideUnitSphere * 2.5f;
+                investigatePos.y = _controller.transform.position.y;
+                
+                float timeout = 6f;
+                while (Vector3.Distance(transform.position, investigatePos) > 1.5f && timeout > 0)
+                {
+                    _controller.MoveToSocialTarget(investigatePos, 1.2f);
+                    timeout -= Time.deltaTime;
+                    yield return null;
+                }
+
+                // Phase 2: Gathering (Observing/Discussing)
+                _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+                
+                Vector3 lookDir = (_eventPos - transform.position).normalized;
+                lookDir.y = 0;
+                if (lookDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(lookDir);
+
+                // Discuss with emojis and Average Loyalty
+                float gatherTimer = Random.Range(5f, 9f);
+                while (gatherTimer > 0)
+                {
+                    if (Random.value > 0.7f && FloatingTextSpawner.Instance != null)
+                    {
+                        string[] emojis = { "🤔", "💬", "🧐", "🙏" };
+                        FloatingTextSpawner.Instance.Spawn(emojis[Random.Range(0, emojis.Length)], transform.position + Vector3.up * 2.5f, Color.white);
+                    }
+
+                    // Social Influence: Average loyalty with nearby villagers also gathering
+                    AverageLoyaltyWithNearby();
+
+                    gatherTimer -= 2f;
+                    yield return new WaitForSeconds(2f);
                 }
             }
 
             _controller.ResumeWork();
+        }
+
+        private void AverageLoyaltyWithNearby()
+        {
+            Collider[] hits = Physics.OverlapSphere(transform.position, 4f);
+            float sum = _controller.loyalty;
+            int count = 1;
+
+            foreach (var hit in hits)
+            {
+                if (hit.gameObject == gameObject) continue;
+                var other = hit.GetComponent<VillagerController>();
+                if (other != null && (other.CurrentState == VillagerController.VillagerState.Gathering || other.CurrentState == VillagerController.VillagerState.Investigating))
+                {
+                    sum += other.loyalty;
+                    count++;
+                }
+            }
+
+            if (count > 1)
+            {
+                float avg = sum / count;
+                // Move 10% towards average per tick
+                float diff = avg - _controller.loyalty;
+                _controller.ModifyLoyalty(diff * 0.1f);
+            }
         }
     }
 }
