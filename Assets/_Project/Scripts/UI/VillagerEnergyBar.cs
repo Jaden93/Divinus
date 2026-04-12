@@ -20,12 +20,24 @@ namespace DivinePrototype
         private RectTransform      _energyFill;
         private RectTransform      _healthFill;
         private Text               _stateLabel;
+        private Text               _speechLabel;
+        private GameObject         _speechBubble;
+        private float              _speechTimer;
 
         private void Start()
         {
             _villager = GetComponent<VillagerController>();
             _cam      = Camera.main;
             BuildHUD();
+        }
+
+        public void ShowSpeech(string text, float duration = 3f)
+        {
+            if (_speechLabel == null || _speechBubble == null) return;
+            
+            _speechLabel.text = text;
+            _speechBubble.SetActive(true);
+            _speechTimer = duration;
         }
 
         private void LateUpdate()
@@ -38,6 +50,13 @@ namespace DivinePrototype
             );
 
             if (_villager == null) return;
+
+            // Speech Bubble logic
+            if (_speechTimer > 0)
+            {
+                _speechTimer -= Time.deltaTime;
+                if (_speechTimer <= 0) _speechBubble.SetActive(false);
+            }
 
             // Barra energia
             if (_energyFill != null)
@@ -130,6 +149,35 @@ namespace DivinePrototype
             _energyFill = eFillGO.GetComponent<RectTransform>();
             _energyFill.anchorMin = Vector2.zero; _energyFill.anchorMax = Vector2.one;
             _energyFill.offsetMin = new Vector2(1f, 1f); _energyFill.offsetMax = new Vector2(-1f, -1f);
+
+            // --- SPEECH BUBBLE (above everything) ---
+            _speechBubble = new GameObject("SpeechBubble");
+            _speechBubble.transform.SetParent(canvasGO.transform, false);
+            var speechRT = _speechBubble.AddComponent<RectTransform>();
+            speechRT.anchorMin = new Vector2(0.5f, 1f);
+            speechRT.anchorMax = new Vector2(0.5f, 1f);
+            speechRT.pivot = new Vector2(0.5f, 0f);
+            speechRT.anchoredPosition = new Vector3(0, 10f, 0); // 10px above the main BG
+            speechRT.sizeDelta = new Vector2(200f, 40f);
+
+            var speechBG = CreateImage(_speechBubble.transform, "SpeechBG",
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
+                new Color(1f, 1f, 1f, 0.9f));
+            speechBG.GetComponent<Image>().color = Color.white; // Solid white bubble
+
+            var speechTextGO = new GameObject("SpeechText");
+            speechTextGO.transform.SetParent(_speechBubble.transform, false);
+            _speechLabel = speechTextGO.AddComponent<Text>();
+            _speechLabel.font = GetFont();
+            _speechLabel.fontSize = 16;
+            _speechLabel.color = Color.black;
+            _speechLabel.alignment = TextAnchor.MiddleCenter;
+            _speechLabel.fontStyle = FontStyle.Bold;
+            var stRT = speechTextGO.GetComponent<RectTransform>();
+            stRT.anchorMin = Vector2.zero; stRT.anchorMax = Vector2.one;
+            stRT.offsetMin = new Vector2(5f, 5f); stRT.offsetMax = new Vector2(-5f, -5f);
+
+            _speechBubble.SetActive(false);
         }
 
         private static GameObject CreateImage(Transform parent, string name,

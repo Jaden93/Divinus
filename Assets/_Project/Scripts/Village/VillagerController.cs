@@ -78,7 +78,6 @@ namespace DivinePrototype
 
         // ── Stato pubblico ─────────────────────────────────────────────
         public VillagerState CurrentState { get; private set; } = VillagerState.Idle;
-        public float Energy               { get; private set; }
         public bool  IsExhausted          => Energy <= exhaustionThreshold;
         public bool  HasPersonalAxe       { get; set; } = false;
         public bool  HasPersonalPickaxe   { get; set; } = false;
