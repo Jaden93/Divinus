@@ -81,7 +81,7 @@ namespace DivinePrototype
             if (benchPrefab != null)
             {
                 _previewInstance = Instantiate(benchPrefab);
-                DisablePreviewColliders(_previewInstance);
+                DisablePreviewComponents(_previewInstance);
                 _previewInstance.SetActive(true);
                 SetTransparent(_previewInstance, 0.4f);
             }
@@ -138,7 +138,7 @@ namespace DivinePrototype
             if (benchPrefab != null)
             {
                 _previewInstance = Instantiate(benchPrefab);
-                DisablePreviewColliders(_previewInstance);
+                DisablePreviewComponents(_previewInstance);
                 _previewInstance.SetActive(true);
                 SetTransparent(_previewInstance, 0.4f);
             }
@@ -314,10 +314,22 @@ namespace DivinePrototype
             return _groundPlane.Raycast(ray, out float enter) ? ray.GetPoint(enter) : Vector3.zero;
         }
 
-        private void DisablePreviewColliders(GameObject go)
+        private void DisablePreviewComponents(GameObject go)
         {
+            go.layer = LayerMask.NameToLayer("Ignore Raycast");
+            foreach (Transform t in go.GetComponentsInChildren<Transform>())
+                t.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
             foreach (var col in go.GetComponentsInChildren<Collider>())
                 col.enabled = false;
+
+            foreach (var nav in go.GetComponentsInChildren<UnityEngine.AI.NavMeshObstacle>())
+                nav.enabled = false;
+
+            foreach (var logic in go.GetComponentsInChildren<MonoBehaviour>())
+            {
+                if (logic != this) logic.enabled = false;
+            }
         }
 
         private void SetTransparent(GameObject go, float alpha)

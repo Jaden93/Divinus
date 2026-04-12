@@ -146,8 +146,13 @@ namespace DivinePrototype
             {
                 if (col.isTrigger) continue;
                 if (col is TerrainCollider) continue;
+                
+                // IGNORA le anteprime (Preview) che stiamo draggando
+                if (col.gameObject.layer == LayerMask.NameToLayer("Ignore Raycast")) continue;
+                if (col.gameObject.CompareTag("EditorOnly")) continue; // Altro modo per ignorare preview
+
                 if (col.gameObject.layer == LayerMask.NameToLayer("UI")) continue;
-                if (col.bounds.size.y < 0.1f) continue; // ignora slab piattissimi (fondamenta)
+                if (col.bounds.size.y < 0.1f) continue; 
                 return true;
             }
 

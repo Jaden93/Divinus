@@ -160,10 +160,18 @@ namespace DivinePrototype
 
         private void DisableGameplayComponents(GameObject go)
         {
+            go.layer = LayerMask.NameToLayer("Ignore Raycast");
+            foreach (Transform t in go.GetComponentsInChildren<Transform>())
+                t.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
             foreach (var c in go.GetComponentsInChildren<MonoBehaviour>())
-                if (c is VillagerController) c.enabled = false;
+                if (c != this) c.enabled = false;
+
             foreach (var col in go.GetComponentsInChildren<Collider>())
                 col.enabled = false;
+
+            foreach (var nav in go.GetComponentsInChildren<UnityEngine.AI.NavMeshObstacle>())
+                nav.enabled = false;
         }
 
         private void TintPreview(Color tint)

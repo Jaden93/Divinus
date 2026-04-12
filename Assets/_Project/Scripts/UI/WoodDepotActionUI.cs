@@ -193,8 +193,24 @@ namespace DivinePrototype
         {
             if (depotPrefab == null) return;
             _previewInstance = Instantiate(depotPrefab);
+            
+            // Imposta il layer Ignore Raycast così il GridManager non si auto-blocca
+            _previewInstance.layer = LayerMask.NameToLayer("Ignore Raycast");
+            foreach (Transform child in _previewInstance.GetComponentsInChildren<Transform>())
+                child.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+            // Disabilita TUTTO ciò che può influenzare il mondo di gioco
             foreach (var col in _previewInstance.GetComponentsInChildren<Collider>())
                 col.enabled = false;
+            
+            foreach (var nav in _previewInstance.GetComponentsInChildren<UnityEngine.AI.NavMeshObstacle>())
+                nav.enabled = false;
+
+            foreach (var logic in _previewInstance.GetComponentsInChildren<MonoBehaviour>())
+            {
+                if (logic != this) logic.enabled = false;
+            }
+
             _previewInstance.SetActive(true);
             SetTransparent(_previewInstance, 0.4f);
         }

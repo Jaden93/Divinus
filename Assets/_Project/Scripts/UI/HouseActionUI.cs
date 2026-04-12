@@ -281,14 +281,23 @@ namespace DivinePrototype
         /// <summary>Disabilita i componenti di gameplay sull'istanza preview per evitare effetti collaterali.</summary>
         private void DisableGameplayComponents(GameObject go)
         {
+            // Imposta layer Ignore Raycast per evitare auto-blocco del GridManager
+            go.layer = LayerMask.NameToLayer("Ignore Raycast");
+            foreach (Transform t in go.GetComponentsInChildren<Transform>())
+                t.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
             foreach (var c in go.GetComponentsInChildren<MonoBehaviour>())
             {
-                if (c is HouseController || c is HouseTransparency)
-                    c.enabled = false;
+                // Disabilita HouseController, HouseTransparency e ogni altra logica
+                if (c != this) c.enabled = false;
             }
-            // Rimuovi collider per evitare interferenze con IsPositionBlocked
+            // Rimuovi collider per evitare interferenze fisiche
             foreach (var col in go.GetComponentsInChildren<Collider>())
                 col.enabled = false;
+
+            // DISABILITA NavMeshObstacle per non bucare il pavimento durante il drag!
+            foreach (var nav in go.GetComponentsInChildren<UnityEngine.AI.NavMeshObstacle>())
+                nav.enabled = false;
         }
 
         private void TintPreview(Color tint)

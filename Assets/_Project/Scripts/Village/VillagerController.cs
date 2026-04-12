@@ -323,6 +323,18 @@ namespace DivinePrototype
             else
             {
                 SetAnim(false, true);
+                
+                // FORZA rotazione verso l'albero
+                if (_targetResource != null)
+                {
+                    Vector3 dir = (_targetResource.transform.position - transform.position);
+                    dir.y = 0;
+                    if (dir.sqrMagnitude > 0.01f)
+                    {
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 10f);
+                    }
+                }
+
                 _chopTimer += Time.deltaTime;
                 Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
 
@@ -383,6 +395,19 @@ namespace DivinePrototype
             else
             {
                 SetAnim(false, false, true);
+
+                // RUOTA verso la roccia mentre mina
+                if (_targetResource != null)
+                {
+                    Vector3 dir = (_targetResource.transform.position - transform.position);
+                    dir.y = 0;
+                    if (dir.sqrMagnitude > 0.001f)
+                    {
+                        Quaternion targetRot = Quaternion.LookRotation(dir);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 5f);
+                    }
+                }
+
                 _chopTimer += Time.deltaTime;
                 _vfxTimer  += Time.deltaTime;
                 Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
