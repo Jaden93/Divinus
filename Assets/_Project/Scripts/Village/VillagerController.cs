@@ -15,8 +15,12 @@ namespace DivinePrototype
             PickingUpAxe, PickingUpPickaxe,
             Resting, GoingToBench, Sitting,
             Dead,
-            Investigating, Gathering, Messenger
+            Investigating, Gathering, Messenger,
+            PickingUpCorpse, CarryingCorpse, Burying
         }
+
+        [Header("Personality")]
+        public PersonalityData personality;
 
         [Header("Movement")]
         public float moveSpeed            = 1.5f; 
@@ -43,6 +47,7 @@ namespace DivinePrototype
         public float sleepEnergyRestorePerSecond = 15f;   
 
         [Header("Social")]
+        [Range(0, 100)]
         public float loyalty = 50f; // 0-100
         public float perceptionRadius = 20f;
 
@@ -114,6 +119,26 @@ namespace DivinePrototype
                 gameObject.AddComponent<VillagerSocialReaction>();
             }
 
+            if (GetComponent<VillagerAuraController>() == null)
+            {
+                gameObject.AddComponent<VillagerAuraController>();
+            }
+
+            if (GetComponent<VillagerGroundEffectController>() == null)
+            {
+                gameObject.AddComponent<VillagerGroundEffectController>();
+            }
+
+            if (GetComponent<VillagerAuraInfluence>() == null)
+            {
+                gameObject.AddComponent<VillagerAuraInfluence>();
+            }
+
+            if (GetComponent<VillagerEnergyBar>() == null)
+            {
+                gameObject.AddComponent<VillagerEnergyBar>();
+            }
+
             if (_agent != null)
             {
                 _agent.speed                 = moveSpeed;
@@ -137,12 +162,41 @@ namespace DivinePrototype
             }
 
             Energy = maxEnergy;
+
+            // Inizializza personalità casuale
+            if (personality == null || personality.primaryTrait == PersonalityTrait.Standard)
+            {
+                PersonalityTrait randomTrait = (PersonalityTrait)Random.Range(0, System.Enum.GetValues(typeof(PersonalityTrait)).Length);
+                personality = new PersonalityData(randomTrait);
+                Debug.Log($"[VillagerController] {name} nato con personalità: {personality.primaryTrait}");
+            }
+
             GoIdleDirect();
         }
 
         private void Update()
         {
             if (CurrentState == VillagerState.Dead) return;
+
+            // Angel (Loyalty > 99) doesn't lose energy
+            if (loyalty < 99f)
+            {
+                float drainMultiplier = 1f;
+                if (loyalty >= 80f) drainMultiplier = 0.7f; // -30% drain
+                
+                Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * drainMultiplier * Time.deltaTime * 0.1f); // Slow drain during generic state
+
+                // Auto-death for exhaustion, unless Saint (Loyalty > 90)
+                if (Energy <= 0 && loyalty < 90f)
+                {
+                    Die();
+                    return;
+                }
+            }
+            else
+            {
+                Energy = maxEnergy; // Angels always full
+            }
 
             switch (CurrentState)
             {
@@ -836,6 +890,18 @@ namespace DivinePrototype
         public void Die()
         {
             if (CurrentState == VillagerState.Dead) return;
+            
+            // IMMORTALITY: Saints (Loyalty > 90) cannot die!
+            if (loyalty >= 90f)
+            {
+                Debug.Log($"[VillagerController] {name} is a SAINT (Loyalty: {loyalty:F0}) and REFUSES TO DIE!");
+                if (FloatingTextSpawner.Instance != null)
+                {
+                    FloatingTextSpawner.Instance.Spawn("😇 IMMORTAL", transform.position + Vector3.up * 3.5f, Color.yellow);
+                }
+                return;
+            }
+
             if (_targetResource != null) _targetResource.Release();
             if (_targetBench != null) _targetBench.Vacate();
             if (_targetHouse != null) _targetHouse.Vacate();
@@ -854,12 +920,23 @@ namespace DivinePrototype
             }
 
             if (_animator != null) _animator.SetTrigger(ParamDying);
+            
+            // Add Corpse lifecycle
+            if (GetComponent<CorpseController>() == null)
+            {
+                gameObject.AddComponent<CorpseController>();
+            }
+
             Debug.Log($"[VillagerController] {name} is DEAD.");
         }
 
         public void Revive(float energyPercent)
         {
             if (CurrentState != VillagerState.Dead) return;
+
+            // Cleanup Corpse lifecycle
+            var corpse = GetComponent<CorpseController>();
+            if (corpse != null) corpse.CleanUp();
 
             // Reset collider to standing position
             var col = GetComponent<CapsuleCollider>();
@@ -937,27 +1014,33 @@ namespace DivinePrototype
 
         public string GetStateLabel()
         {
-            return CurrentState switch
+            string traitPrefix = personality != null ? $"[{personality.primaryTrait}] " : "[Standard] ";
+            string loyaltyText = $" | Loyalty: {Mathf.RoundToInt(loyalty)}";
+            string stateName = CurrentState switch
             {
                 VillagerState.Idle         => "Idle",
-                VillagerState.Walking      => "Walking",
-                VillagerState.ChoppingWood => "Chopping",
+                VillagerState.Walking      => "Walking Around",
+                VillagerState.ChoppingWood => "Chopping Wood",
                 VillagerState.CarryingWood => "Carrying Wood",
-                VillagerState.MiningStone   => "Mining",
+                VillagerState.MiningStone   => "Mining Stone",
                 VillagerState.CarryingStone => "Carrying Stone",
-                VillagerState.GoingToSleep => "-> Sleep",
-                VillagerState.Sleeping     => "Sleeping",
-                VillagerState.PickingUpAxe => "-> Axe",
-                VillagerState.PickingUpPickaxe => "-> Pickaxe",
+                VillagerState.GoingToSleep => "Going to Sleep",
+                VillagerState.Sleeping     => "Zzz...",
+                VillagerState.PickingUpAxe => "Getting Axe",
+                VillagerState.PickingUpPickaxe => "Getting Pickaxe",
                 VillagerState.Resting      => "Resting",
-                VillagerState.GoingToBench => "-> Bench",
-                VillagerState.Sitting      => "Sitting",
+                VillagerState.GoingToBench => "Going to Bench",
+                VillagerState.Sitting      => "Sitting on Bench",
                 VillagerState.Dead         => "Dead",
                 VillagerState.Investigating => "Investigating",
                 VillagerState.Gathering    => "Gathering",
-                VillagerState.Messenger    => "Messenger",
-                _                          => ""
+                VillagerState.Messenger    => "Spreading News",
+                VillagerState.PickingUpCorpse => "Picking up Corpse",
+                VillagerState.CarryingCorpse  => "Carrying Dead Friend",
+                VillagerState.Burying         => "Burying...",
+                _                          => "Unknown"
             };
+            return traitPrefix + stateName + loyaltyText;
         }
     }
 }

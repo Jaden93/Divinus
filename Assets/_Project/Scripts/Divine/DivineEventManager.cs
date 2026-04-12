@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace DivinePrototype
 {
-    public enum DivineEventType { Smite, Repair, Revive }
+    public enum DivineEventType { None, Smite, Repair, Revive }
 
     public struct DivineEvent
     {

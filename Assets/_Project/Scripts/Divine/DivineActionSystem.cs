@@ -32,6 +32,8 @@ namespace DivinePrototype
 
         [Header("Costi fede")]
         public float faithCostVillager = 20f;
+        public float faithCostRevive   = 30f;
+        public float faithCostSmite    = 15f;
 
         public DivinePower PendingPower { get; private set; } = DivinePower.None;
 
@@ -95,8 +97,15 @@ namespace DivinePrototype
             switch (PendingPower)
             {
                 case DivinePower.Smite:
+                    // Verifica se abbiamo abbastanza fede (anche se Smite è solitamente punitivo, costa potere divino)
+                    if (faithSystem != null && faithSystem.Faith < faithCostSmite) 
+                    {
+                        Debug.Log("Fede insufficiente per Smite");
+                        return;
+                    }
+
                     LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f);
-                    if (faithSystem != null) faithSystem.AddFaith(-15f);
+                    if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
                     
                     // Trigger death
                     villager.Die();
@@ -104,6 +113,9 @@ namespace DivinePrototype
                     StartCoroutine(FlashVillager(villager, new Color(1f, 0.9f, 0.1f), 0.3f));
                     Debug.Log($"[DivineActionSystem] Smite villager: {villager.name}");
                     
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("Smote!", villager.transform.position + Vector3.up * 2f, Color.red);
+
                     DivineEventManager.Broadcast(new DivineEvent { 
                         Type = DivineEventType.Smite, 
                         Position = villager.transform.position, 
@@ -115,11 +127,23 @@ namespace DivinePrototype
                 case DivinePower.Revive:
                     if (villager.CurrentState == VillagerController.VillagerState.Dead)
                     {
-                        if (faithSystem != null) faithSystem.AddFaith(-15f);
-                        villager.Revive(0.5f);
-                        StartCoroutine(FlashVillager(villager, new Color(0.8f, 1f, 0.8f), 1.0f));
+                        if (faithSystem != null && faithSystem.Faith < faithCostRevive)
+                        {
+                            Debug.Log("Fede insufficiente per Revive");
+                            if (FloatingTextSpawner.Instance != null)
+                                FloatingTextSpawner.Instance.Spawn("Not enough Faith!", villager.transform.position + Vector3.up * 2f, Color.yellow);
+                            return;
+                        }
+
+                        if (faithSystem != null) faithSystem.AddFaith(-faithCostRevive);
+                        
+                        villager.Revive(0.5f); // Resuscita con 50% energia
+                        StartCoroutine(FlashVillager(villager, new Color(0.4f, 1f, 0.4f), 1.0f));
                         Debug.Log($"[DivineActionSystem] Revive villager: {villager.name}");
                         
+                        if (FloatingTextSpawner.Instance != null)
+                            FloatingTextSpawner.Instance.Spawn("Resurrected!", villager.transform.position + Vector3.up * 2f, Color.cyan);
+
                         DivineEventManager.Broadcast(new DivineEvent { 
                             Type = DivineEventType.Revive, 
                             Position = villager.transform.position, 

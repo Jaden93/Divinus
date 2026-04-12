@@ -13,6 +13,7 @@ namespace DivinePrototype
         {
             _controller = GetComponent<VillagerController>();
             DivineEventManager.OnDivineEvent += HandleDivineEvent;
+            StartCoroutine(CheckForNearbyCorpsesRoutine());
         }
 
         void OnDestroy()
@@ -20,9 +21,220 @@ namespace DivinePrototype
             DivineEventManager.OnDivineEvent -= HandleDivineEvent;
         }
 
+        private IEnumerator CheckForNearbyCorpsesRoutine()
+        {
+            while (true)
+            {
+                if (_controller.CurrentState == VillagerController.VillagerState.Idle || _controller.CurrentState == VillagerController.VillagerState.Walking)
+                {
+                    CheckForNearbyCorpses();
+                }
+                yield return new WaitForSeconds(3f);
+            }
+        }
+
+        private void CheckForNearbyCorpses()
+        {
+            if (_controller.CurrentState == VillagerController.VillagerState.Dead) return;
+            if (_controller.CurrentState == VillagerController.VillagerState.CarryingCorpse) return;
+
+            Collider[] hits = Physics.OverlapSphere(transform.position, _controller.perceptionRadius);
+            foreach (var hit in hits)
+            {
+                var other = hit.GetComponent<VillagerController>();
+                if (other != null && other.CurrentState == VillagerController.VillagerState.Dead)
+                {
+                    // Found a corpse! React based on personality
+                    HandleCorpseDiscovery(other);
+                    break;
+                }
+            }
+        }
+
+        private void HandleCorpseDiscovery(VillagerController corpse)
+        {
+            var p = _controller.personality;
+            if (p == null) return;
+
+            switch (p.primaryTrait)
+            {
+                case PersonalityTrait.Cowardly:
+                    // Fear! Flee from the corpse
+                    StartCoroutine(ReactToScaryEvent(corpse.transform.position));
+                    break;
+
+                case PersonalityTrait.Courageous:
+                case PersonalityTrait.Altruistic:
+                    // Brave or Kind! Try to bury it if a cemetery exists
+                    if (CemeteryController.Instance != null)
+                    {
+                        StartCoroutine(BurialRoutine(corpse));
+                    }
+                    else
+                    {
+                        // No cemetery? Just mourn/investigate
+                        _eventPos = corpse.transform.position;
+                        _lastEventType = DivineEventType.None;
+                        StartCoroutine(ReactToEvent());
+                    }
+                    break;
+
+                case PersonalityTrait.Selfish:
+                    // Do nothing, maybe a small emoji
+                    if (Random.value > 0.8f && FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("🙄", transform.position + Vector3.up * 2.5f, Color.gray);
+                    break;
+
+                default:
+                    // Standard: Investigate
+                    _eventPos = corpse.transform.position;
+                    _lastEventType = DivineEventType.None;
+                    StartCoroutine(ReactToEvent());
+                    break;
+            }
+        }
+
+        private IEnumerator BurialRoutine(VillagerController corpse)
+        {
+            _controller.PauseWork();
+            _controller.SetSocialState(VillagerController.VillagerState.PickingUpCorpse);
+            
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("I will help...", transform.position + Vector3.up * 2.5f, Color.white);
+
+            // Walk to corpse
+            float timeout = 10f;
+            while (Vector3.Distance(transform.position, corpse.transform.position) > 1.5f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(corpse.transform.position, 1.2f);
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            if (timeout <= 0) { _controller.ResumeWork(); yield break; }
+
+            // Pick up (Simplified: disable corpse, change state)
+            _controller.SetSocialState(VillagerController.VillagerState.CarryingCorpse);
+            corpse.gameObject.SetActive(false); 
+            
+            // Walk to Cemetery
+            Vector3 cemeteryPos = CemeteryController.Instance.GetBurialPosition();
+            timeout = 15f;
+            while (Vector3.Distance(transform.position, cemeteryPos) > 2.0f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(cemeteryPos, 0.8f); // Slower when carrying
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            // Bury
+            _controller.SetSocialState(VillagerController.VillagerState.Burying);
+            yield return new WaitForSeconds(3f);
+            
+            CemeteryController.Instance.BuryCorpse(_controller, corpse);
+            
+            _controller.ResumeWork();
+        }
+
+        private float _heresyTimer = 0f;
+        private float _heresyCheckInterval = 30f; // Check every 30s
+
+        void Update()
+        {
+            if (_controller.CurrentState == VillagerController.VillagerState.Dead) return;
+
+            // Spontaneous Heresy Gathering (Organized by < 30)
+            if (_controller.loyalty < 30f && _controller.CurrentState == VillagerController.VillagerState.Idle)
+            {
+                _heresyTimer += Time.deltaTime;
+                if (_heresyTimer >= _heresyCheckInterval)
+                {
+                    _heresyTimer = 0f;
+                    if (Random.value > 0.7f) // 30% chance to start a gathering
+                    {
+                        StartCoroutine(StartHeresyGathering());
+                    }
+                }
+            }
+        }
+
+        private IEnumerator StartHeresyGathering()
+        {
+            Debug.Log($"[Social] {name} is organizing a HERESY GATHERING!");
+            _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+            
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("📣 REBEL!", transform.position + Vector3.up * 2.5f, Color.red);
+
+            // Broadcast event for others to join (using a custom event type or just nearby check)
+            // For now, let's keep it simple: neighbors join if they are idle and skeptical (<80)
+            
+            float duration = Random.Range(15f, 25f);
+            while (duration > 0)
+            {
+                duration -= 2f;
+                InviteNearbyToGathering();
+                
+                if (FloatingTextSpawner.Instance != null && Random.value > 0.5f)
+                    FloatingTextSpawner.Instance.Spawn("😡", transform.position + Vector3.up * 2.5f, Color.red);
+                
+                yield return new WaitForSeconds(2f);
+            }
+
+            _controller.ResumeWork();
+        }
+
+        private void InviteNearbyToGathering()
+        {
+            Collider[] hits = Physics.OverlapSphere(transform.position, 6f);
+            foreach (var hit in hits)
+            {
+                if (hit.gameObject == gameObject) continue;
+                var otherReaction = hit.GetComponent<VillagerSocialReaction>();
+                if (otherReaction != null)
+                {
+                    var otherCtrl = otherReaction._controller;
+                    if (otherCtrl.loyalty < 80f && otherCtrl.CurrentState == VillagerController.VillagerState.Idle)
+                    {
+                        // Join the gathering
+                        otherReaction.StartCoroutine(otherReaction.JoinGathering(transform.position));
+                    }
+                }
+            }
+        }
+
+        private IEnumerator JoinGathering(Vector3 spot)
+        {
+            if (_controller.CurrentState == VillagerController.VillagerState.Gathering || 
+                _controller.CurrentState == VillagerController.VillagerState.Investigating) yield break;
+
+            _controller.PauseWork();
+            _controller.SetSocialState(VillagerController.VillagerState.Investigating);
+            
+            Vector3 joinPos = spot + Random.insideUnitSphere * 3f;
+            joinPos.y = transform.position.y;
+            
+            float timeout = 5f;
+            while (Vector3.Distance(transform.position, joinPos) > 1.2f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(joinPos, 1.0f);
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+            
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("🤔", transform.position + Vector3.up * 2.5f, Color.white);
+
+            yield return new WaitForSeconds(Random.Range(8f, 12f));
+            _controller.ResumeWork();
+        }
+
         private void HandleDivineEvent(DivineEvent e)
         {
             if (_controller.CurrentState == VillagerController.VillagerState.Dead) return;
+            if (_controller.CurrentState == VillagerController.VillagerState.CarryingCorpse) return;
 
             float dist = Vector3.Distance(transform.position, e.Position);
             if (dist <= _controller.perceptionRadius)
@@ -35,85 +247,122 @@ namespace DivinePrototype
 
         private IEnumerator ReactToEvent()
         {
-            _controller.PauseWork();
+            var p = _controller.personality;
             bool isScary = _lastEventType == DivineEventType.Smite;
-            
-            // Loyalty Impact
-            float loyaltyImpact = isScary ? -15f : (_lastEventType == DivineEventType.Revive ? 20f : 5f);
-            _controller.ModifyLoyalty(loyaltyImpact);
-
-            // Initial emoji reaction
-            if (FloatingTextSpawner.Instance != null)
-            {
-                string emoji = isScary ? "😱" : (_lastEventType == DivineEventType.Revive ? "👼" : "✨");
-                Color color = isScary ? Color.red : (_lastEventType == DivineEventType.Revive ? Color.yellow : Color.cyan);
-                FloatingTextSpawner.Instance.Spawn(emoji, transform.position + Vector3.up * 2.5f, color);
-            }
 
             if (isScary)
             {
-                Debug.Log($"[Social] {name} is TERRORIZED by {_lastEventType}!");
-                _controller.SetSocialState(VillagerController.VillagerState.Messenger);
-                
-                // Flee from event
-                Vector3 fleeDir = (transform.position - _eventPos).normalized;
-                if (fleeDir.sqrMagnitude < 0.1f) fleeDir = Random.onUnitSphere;
-                Vector3 fleePos = transform.position + fleeDir * 12f;
-                
-                if (UnityEngine.AI.NavMesh.SamplePosition(fleePos, out UnityEngine.AI.NavMeshHit hit, 10f, UnityEngine.AI.NavMesh.AllAreas))
-                    fleePos = hit.position;
-
-                float timeout = 4f;
-                while (Vector3.Distance(transform.position, fleePos) > 1.5f && timeout > 0)
+                // REAZIONE ALLO SMITE (FULMINE)
+                switch (p?.primaryTrait)
                 {
-                    _controller.MoveToSocialTarget(fleePos, 2.0f);
-                    timeout -= Time.deltaTime;
-                    yield return null;
-                }
+                    case PersonalityTrait.Cowardly:
+                        yield return StartCoroutine(ReactToScaryEvent(_eventPos));
+                        break;
 
-                yield return new WaitForSeconds(Random.Range(2f, 4f));
+                    case PersonalityTrait.Courageous:
+                    case PersonalityTrait.Altruistic:
+                        // I coraggiosi e altruisti vanno a vedere cosa è successo invece di scappare
+                        yield return StartCoroutine(ReactToCuriousEvent(_eventPos));
+                        break;
+
+                    case PersonalityTrait.Devout:
+                        // I devoti si fermano a pregare sul posto
+                        _controller.PauseWork();
+                        _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+                        if (FloatingTextSpawner.Instance != null)
+                            FloatingTextSpawner.Instance.Spawn("🙏 Divine Wrath...", transform.position + Vector3.up * 2.5f, Color.yellow);
+                        yield return new WaitForSeconds(5f);
+                        _controller.ResumeWork();
+                        break;
+
+                    case PersonalityTrait.Selfish:
+                        // Gli egoisti ignorano il fulmine se non li ha colpiti direttamente
+                        if (FloatingTextSpawner.Instance != null)
+                            FloatingTextSpawner.Instance.Spawn("🙄 Whatever", transform.position + Vector3.up * 2.5f, Color.gray);
+                        yield return new WaitForSeconds(1f);
+                        break;
+
+                    default:
+                        // Standard: 50% scappa, 50% investiga
+                        if (Random.value > 0.5f)
+                            yield return StartCoroutine(ReactToScaryEvent(_eventPos));
+                        else
+                            yield return StartCoroutine(ReactToCuriousEvent(_eventPos));
+                        break;
+                }
             }
             else
             {
-                Debug.Log($"[Social] {name} is CURIOUS about {_lastEventType}!");
-                _controller.SetSocialState(VillagerController.VillagerState.Investigating);
-                
-                Vector3 investigatePos = _eventPos + Random.insideUnitSphere * 2.5f;
-                investigatePos.y = _controller.transform.position.y;
-                
-                float timeout = 6f;
-                while (Vector3.Distance(transform.position, investigatePos) > 1.5f && timeout > 0)
-                {
-                    _controller.MoveToSocialTarget(investigatePos, 1.2f);
-                    timeout -= Time.deltaTime;
-                    yield return null;
-                }
+                // REAZIONE A EVENTI POSITIVI (REVIVE, REPAIR, ECC)
+                yield return StartCoroutine(ReactToCuriousEvent(_eventPos));
+            }
+        }
 
-                // Phase 2: Gathering (Observing/Discussing)
-                _controller.SetSocialState(VillagerController.VillagerState.Gathering);
-                
-                Vector3 lookDir = (_eventPos - transform.position).normalized;
-                lookDir.y = 0;
-                if (lookDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(lookDir);
+        private IEnumerator ReactToScaryEvent(Vector3 pos)
+        {
+            _controller.PauseWork();
+            _controller.SetSocialState(VillagerController.VillagerState.Messenger);
+            _controller.ModifyLoyalty(-15f);
 
-                // Discuss with emojis and Average Loyalty
-                float gatherTimer = Random.Range(5f, 9f);
-                while (gatherTimer > 0)
-                {
-                    if (Random.value > 0.7f && FloatingTextSpawner.Instance != null)
-                    {
-                        string[] emojis = { "🤔", "💬", "🧐", "🙏" };
-                        FloatingTextSpawner.Instance.Spawn(emojis[Random.Range(0, emojis.Length)], transform.position + Vector3.up * 2.5f, Color.white);
-                    }
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("😱", transform.position + Vector3.up * 2.5f, Color.red);
 
-                    // Social Influence: Average loyalty with nearby villagers also gathering
-                    AverageLoyaltyWithNearby();
+            Vector3 fleeDir = (transform.position - pos).normalized;
+            if (fleeDir.sqrMagnitude < 0.1f) fleeDir = Random.onUnitSphere;
+            Vector3 fleePos = transform.position + fleeDir * 12f;
+            
+            if (UnityEngine.AI.NavMesh.SamplePosition(fleePos, out UnityEngine.AI.NavMeshHit hit, 10f, UnityEngine.AI.NavMesh.AllAreas))
+                fleePos = hit.position;
 
-                    gatherTimer -= 2f;
-                    yield return new WaitForSeconds(2f);
-                }
+            float timeout = 4f;
+            while (Vector3.Distance(transform.position, fleePos) > 1.5f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(fleePos, 2.0f);
+                timeout -= Time.deltaTime;
+                yield return null;
             }
 
+            yield return new WaitForSeconds(Random.Range(2f, 4f));
+            _controller.ResumeWork();
+        }
+
+        private IEnumerator ReactToCuriousEvent(Vector3 pos)
+        {
+            _controller.PauseWork();
+            _controller.SetSocialState(VillagerController.VillagerState.Investigating);
+            _controller.ModifyLoyalty(5f);
+
+            if (FloatingTextSpawner.Instance != null)
+                FloatingTextSpawner.Instance.Spawn("✨", transform.position + Vector3.up * 2.5f, Color.cyan);
+
+            Vector3 investigatePos = pos + Random.insideUnitSphere * 2.5f;
+            investigatePos.y = transform.position.y;
+            
+            float timeout = 6f;
+            while (Vector3.Distance(transform.position, investigatePos) > 1.5f && timeout > 0)
+            {
+                _controller.MoveToSocialTarget(investigatePos, 1.2f);
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            _controller.SetSocialState(VillagerController.VillagerState.Gathering);
+            Vector3 lookDir = (pos - transform.position).normalized;
+            lookDir.y = 0;
+            if (lookDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(lookDir);
+
+            float gatherTimer = Random.Range(5f, 9f);
+            while (gatherTimer > 0)
+            {
+                if (Random.value > 0.7f && FloatingTextSpawner.Instance != null)
+                {
+                    string[] emojis = { "🤔", "💬", "🧐", "🙏" };
+                    FloatingTextSpawner.Instance.Spawn(emojis[Random.Range(0, emojis.Length)], transform.position + Vector3.up * 2.5f, Color.white);
+                }
+                AverageLoyaltyWithNearby();
+                gatherTimer -= 2f;
+                yield return new WaitForSeconds(2f);
+            }
             _controller.ResumeWork();
         }
 
