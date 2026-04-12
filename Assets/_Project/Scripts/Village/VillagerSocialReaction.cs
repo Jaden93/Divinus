@@ -283,24 +283,45 @@ namespace DivinePrototype
             _controller.SetSocialState(VillagerController.VillagerState.Confronting);
             Speak("👊 BRAWL!");
 
-            float brawlTimer = 10f;
+            bool targetIsSainlty = target.loyalty >= 80f;
+            float brawlTimer = 15f; // Longer brawl to allow player intervention
+            
             while (brawlTimer > 0 && target.Health > 0 && _controller.Health > 0)
             {
                 brawlTimer -= 1f;
                 
-                if (Random.value > 0.8f) Speak("💢", 0.5f);
+                if (Random.value > 0.7f) Speak("💢", 0.5f);
 
-                float damage = Random.Range(5f, 12f);
+                // Aggressor deals damage
+                float damage = Random.Range(8f, 15f);
                 target.ModifyHealth(-damage);
 
-                if (target.Health > 0 && target.loyalty < 95f)
+                // --- NEW LOGIC: SAINTS DON'T FIGHT BACK ---
+                if (targetIsSainlty)
                 {
-                    _controller.ModifyHealth(-damage * 0.5f);
+                    // Target is pacifist, just prays
+                    if (target.Health >= 40f)
+                    {
+                        target.GetComponent<VillagerSocialReaction>()?.Speak("🙏 HELP ME GOD!", 1.5f);
+                    }
+                    else
+                    {
+                        // HEALTH < 40: LOST FAITH AND FLEE
+                        target.GetComponent<VillagerSocialReaction>()?.Speak("😭 NO HELP... I'M LEAVING!", 3f);
+                        target.ModifyLoyalty(-(target.loyalty - 50f)); // Drop loyalty exactly to 50
+                        
+                        // Start Fleeing
+                        StartCoroutine(target.GetComponent<VillagerSocialReaction>().ReactToScaryEvent(transform.position));
+                        break; // End brawl loop
+                    }
                 }
-
-                if (target.loyalty >= 80f && target.Health < 40f)
+                else
                 {
-                    target.GetComponent<VillagerSocialReaction>()?.Speak("🙏 HELP ME GOD!", 2f);
+                    // Regular villager fights back
+                    if (target.Health > 0)
+                    {
+                        _controller.ModifyHealth(-damage * 0.5f);
+                    }
                 }
                 
                 yield return new WaitForSeconds(1f);
@@ -446,6 +467,9 @@ namespace DivinePrototype
 
         private void AverageLoyaltyWithNearby()
         {
+            // --- NEW LOGIC: Extremists don't change their mind via conversation ---
+            if (_controller.loyalty >= 80f || _controller.loyalty <= 30f) return;
+
             Collider[] hits = Physics.OverlapSphere(transform.position, 4f);
             float sum = _controller.loyalty;
             int count = 1;

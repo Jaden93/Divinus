@@ -51,19 +51,11 @@ namespace DivinePrototype
                 var other = hit.GetComponent<VillagerController>();
                 if (other != null && other.CurrentState != VillagerController.VillagerState.Dead)
                 {
-                    // Immunity check: Saints/Angels don't get corrupted easily, 
-                    // and Heretics/Dark Angels don't get converted easily by passive aura.
-                    
-                    bool otherIsSaint = other.loyalty >= 90f;
-                    bool otherIsHeretic = other.loyalty <= 10f;
-                    
-                    float finalPower = power;
-                    
-                    // Resistance logic
-                    if (power < 0 && otherIsSaint) finalPower *= 0.2f; // High resistance to corruption
-                    if (power > 0 && otherIsHeretic) finalPower *= 0.3f; // Resistance to conversion
-                    
-                    other.ModifyLoyalty(finalPower);
+                    // --- NEW LOGIC: Only neutrals (30-80) are influenced ---
+                    if (other.loyalty > 30f && other.loyalty < 80f)
+                    {
+                        other.ModifyLoyalty(power);
+                    }
                 }
             }
         }
