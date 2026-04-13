@@ -184,6 +184,24 @@ namespace DivinePrototype
             _controller.ResumeWork();
         }
 
+        private void InviteNearbyToGathering()
+        {
+            Collider[] hits = Physics.OverlapSphere(transform.position, _controller.perceptionRadius);
+            foreach (var hit in hits)
+            {
+                if (hit.gameObject == gameObject) continue;
+                var otherReaction = hit.GetComponent<VillagerSocialReaction>();
+                if (otherReaction != null)
+                {
+                    // 20% chance to join if they see the gathering
+                    if (Random.value > 0.8f)
+                    {
+                        otherReaction.StartCoroutine("JoinGathering", transform.position);
+                    }
+                }
+            }
+        }
+
         private IEnumerator JoinGathering(Vector3 spot)
         {
             if (_controller.CurrentState == VillagerController.VillagerState.Gathering || 
