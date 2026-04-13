@@ -80,17 +80,6 @@ namespace DivinePrototype
             Debug.Log($"[DivineActionSystem] Potere selezionato: {power}");
         }
 
-                case DivinePower.Smite:
-                    LightningStrike.Spawn(worldPos, smiteVFXPrefab);
-                    if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
-                    
-                    DivineEventManager.Broadcast(new DivineEvent { 
-                        Type = DivineEventType.Smite, 
-                        Position = worldPos, 
-                        Target = null, 
-                        Radius = 15f 
-                    });
-                    break;
         public void ClearPendingPower()
         {
             PendingPower = DivinePower.None;
@@ -107,6 +96,17 @@ namespace DivinePrototype
                     break;
                 case DivinePower.SpawnFemale:
                     TrySpawnVillager(true, worldPos);
+                    break;
+                case DivinePower.Smite:
+                    LightningStrike.Spawn(worldPos, smiteVFXPrefab);
+                    if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
+                    
+                    DivineEventManager.Broadcast(new DivineEvent { 
+                        Type = DivineEventType.Smite, 
+                        Position = worldPos, 
+                        Target = null, 
+                        Radius = 15f 
+                    });
                     break;
             }
         }
@@ -259,11 +259,6 @@ namespace DivinePrototype
         {
             if (PendingPower != DivinePower.Smite) return;
 
-            if (faithSystem != null && faithSystem.Faith < faithCostSmite) return;
-
-            LightningStrike.Spawn(node.transform.position + Vector3.up * 1.5f, smiteVFXPrefab);
-            if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
-
             // Usa la logica interna del nodo per il depletamento da Smite (che spawna i cubi)
             node.SmiteDeplete();
 
@@ -279,7 +274,6 @@ namespace DivinePrototype
         {
             if (PendingPower == DivinePower.Revive)
             {
-                if (faithSystem != null && faithSystem.Faith < faithCostRevive) return;
                 if (faithSystem != null) faithSystem.AddFaith(-faithCostRevive);
 
                 tomb.ReviveBuriedVillager();
