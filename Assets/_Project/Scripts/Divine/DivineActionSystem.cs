@@ -38,6 +38,8 @@ namespace DivinePrototype
         public float faithCostSmite    = 0f;
         public float faithCostMessenger = 0f;
 
+
+        public GameObject smiteVFXPrefab;
         public DivinePower PendingPower { get; private set; } = DivinePower.None;
 
         private void Start()
@@ -78,6 +80,17 @@ namespace DivinePrototype
             Debug.Log($"[DivineActionSystem] Potere selezionato: {power}");
         }
 
+                case DivinePower.Smite:
+                    LightningStrike.Spawn(worldPos, smiteVFXPrefab);
+                    if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
+                    
+                    DivineEventManager.Broadcast(new DivineEvent { 
+                        Type = DivineEventType.Smite, 
+                        Position = worldPos, 
+                        Target = null, 
+                        Radius = 15f 
+                    });
+                    break;
         public void ClearPendingPower()
         {
             PendingPower = DivinePower.None;
@@ -103,7 +116,7 @@ namespace DivinePrototype
             switch (PendingPower)
             {
                 case DivinePower.Smite:
-                    LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f);
+                    LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f, smiteVFXPrefab);
                     if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
                     
                     // Morte istantanea
@@ -216,7 +229,7 @@ namespace DivinePrototype
             switch (PendingPower)
             {
                 case DivinePower.Smite:
-                    LightningStrike.Spawn(obj.transform.position + Vector3.up * 0.5f);
+                    LightningStrike.Spawn(obj.transform.position + Vector3.up * 0.5f, smiteVFXPrefab);
                     obj.TakeDamage();
                     if (faithSystem != null) faithSystem.AddFaith(-5f);
                     
@@ -248,7 +261,7 @@ namespace DivinePrototype
 
             if (faithSystem != null && faithSystem.Faith < faithCostSmite) return;
 
-            LightningStrike.Spawn(node.transform.position + Vector3.up * 1.5f);
+            LightningStrike.Spawn(node.transform.position + Vector3.up * 1.5f, smiteVFXPrefab);
             if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
 
             // Usa la logica interna del nodo per il depletamento da Smite (che spawna i cubi)

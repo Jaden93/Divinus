@@ -91,6 +91,7 @@ namespace DivinePrototype
         private int   _carriedWoodAmount = 0;
         private int   _carriedStoneAmount = 0;
         private GameObject _carriedVisual;
+        private float _deliveryStuckTimer = 0f;
 
         private Vector3          _sleepTarget;
         private Vector3          _doorThreshold;
@@ -247,24 +248,95 @@ namespace DivinePrototype
             if (_targetResource == null) { GoIdle(); return; }
             var rm = ResourceManager.Instance;
             if (rm != null) { var stoneData = rm.GetResourceData("Stone"); if (stoneData != null && stoneData.count >= stoneData.currentMax) { _targetResource.Release(); _targetResource = null; _targetDepot = null; GoIdleDirect(); return; } }
-            Vector3 nodePos = Flat(_targetResource.transform.position);
-            if (!_arrivedAtNode) { MoveTo(nodePos); SetAnim(true, false, false); if (AgentReachedTarget(nodePos, taskStopDistance)) { _arrivedAtNode = true; StopAgent(); } }
-            else { SetAnim(false, false, true); if (_targetResource != null) { Vector3 dir = (_targetResource.transform.position - transform.position); dir.y = 0; if (dir.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 5f); }
-                _chopTimer += Time.deltaTime; _vfxTimer += Time.deltaTime; Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
-                if (miningVFXPrefab != null && _vfxTimer >= 0.8f) { _vfxTimer = 0f; Vector3 spawnPos = Vector3.Lerp(transform.position, _targetResource.transform.position, 0.7f) + Vector3.up * 0.5f; GameObject vfx = Instantiate(miningVFXPrefab, spawnPos, Quaternion.LookRotation(transform.position - _targetResource.transform.position)); Destroy(vfx, 1.5f); }
-                if (_chopTimer >= chopDuration) { _vfxTimer = 0f; int spaceLeft = rm != null ? rm.GetResourceData("Stone").currentMax - rm.GetResourceData("Stone").count : 1; _carriedStoneAmount = _targetResource.TakeResource(spaceLeft); UpdateCarriedVisual(Color.gray); if (IsExhausted) { if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; StartAutoSleep(); } else GoCarryingStone(); return; } }
+            
+            // Calcola una posizione sicura ESTERNA alla roccia
+            Vector3 dirFromNode = (transform.position - _targetResource.transform.position);
+            dirFromNode.y = 0;
+            if (dirFromNode.sqrMagnitude < 0.1f) dirFromNode = Vector3.forward;
+            Vector3 safePos = Flat(_targetResource.transform.position) + dirFromNode.normalized * 2.0f;
+
+            if (!_arrivedAtNode) { 
+                if (_agent != null) {
+                    _agent.stoppingDistance = 0.5f; // Stop distance vicino alla safePos
+                    _agent.updateRotation = true;
+                }
+                MoveTo(safePos); 
+                SetAnim(true, false, false); 
+                if (AgentReachedTarget(safePos, 0.8f)) { 
+                    _arrivedAtNode = true; 
+                    StopAgent(); 
+                } 
+            }
+            else { 
+                SetAnim(false, false, true); 
+                if (_agent != null) _agent.updateRotation = false; // Forza stop rotazione agent
+
+                if (_targetResource != null) { 
+                    // Rotazione FORZATA verso la roccia ogni frame
+                    Vector3 dir = (_targetResource.transform.position - transform.position); 
+                    dir.y = 0; 
+                    if (dir.sqrMagnitude > 0.001f) {
+                        transform.rotation = Quaternion.LookRotation(dir);
+                    }
+                }
+                
+                _chopTimer += Time.deltaTime; 
+                _vfxTimer += Time.deltaTime; 
+                Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
+                
+                if (miningVFXPrefab != null && _vfxTimer >= 0.8f) { 
+                    _vfxTimer = 0f; 
+                    Vector3 spawnPos = transform.position + transform.forward * 1.5f + Vector3.up * 0.8f; 
+                    GameObject vfx = Instantiate(miningVFXPrefab, spawnPos, transform.rotation); 
+                    Destroy(vfx, 1.5f); 
+                }
+                
+                if (_chopTimer >= chopDuration) { 
+                    if (_agent != null) {
+                        _agent.updateRotation = true; 
+                        _agent.stoppingDistance = waypointStopDistance;
+                    }
+                    _vfxTimer = 0f; 
+                    int spaceLeft = rm != null ? rm.GetResourceData("Stone").currentMax - rm.GetResourceData("Stone").count : 1; 
+                    _carriedStoneAmount = _targetResource.TakeResource(spaceLeft); 
+                    UpdateCarriedVisual(Color.gray); 
+                    if (IsExhausted) { if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; StartAutoSleep(); } 
+                    else GoCarryingStone(); 
+                    return; 
+                } 
+            }
         }
 
-        private void GoCarryingWood() { _targetDepot = FindNearestDepot(); CurrentState = VillagerState.CarryingWood; if (_targetDepot != null) MoveTo(_targetDepot.GetDeliveryPosition()); SetAnim(true, false); }
-        private void GoCarryingStone() { _targetDepot = FindNearestDepot(); CurrentState = VillagerState.CarryingStone; if (_targetDepot != null) MoveTo(_targetDepot.GetDeliveryPosition()); SetAnim(true, false, false); }
+        private void GoCarryingWood() { _targetDepot = FindNearestDepot(); CurrentState = VillagerState.CarryingWood; if (_targetDepot != null) { if (_agent != null) _agent.stoppingDistance = 2.0f; MoveTo(_targetDepot.GetDeliveryPosition()); } SetAnim(true, false); }
+        private void GoCarryingStone() { _targetDepot = FindNearestDepot(); CurrentState = VillagerState.CarryingStone; if (_targetDepot != null) { if (_agent != null) _agent.stoppingDistance = 2.0f; MoveTo(_targetDepot.GetDeliveryPosition()); } SetAnim(true, false, false); }
 
         private void UpdateCarryingWood()
-        { if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); if (IsExhausted) StartAutoSleep(); else GoIdleDirect(); return; }
-          Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); if (AgentReachedTarget(depotPos, 2.5f)) { ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); if (IsExhausted) StartAutoSleep(); else GoIdle(); } }
+        { 
+            if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
+            MoveTo(depotPos); 
+            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
+            // Logica consegna "Bump-Proof": se sono molto vicino (3m), scarico comunque
+            if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
+                ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); 
+                _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+                if (IsExhausted) StartAutoSleep(); else GoIdle(); 
+            } 
+        }
 
         private void UpdateCarryingStone()
-        { if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); if (IsExhausted) StartAutoSleep(); else GoIdleDirect(); return; }
-          Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); if (AgentReachedTarget(depotPos, 2.5f)) { ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); if (IsExhausted) StartAutoSleep(); else GoIdle(); } }
+        { 
+            if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
+            MoveTo(depotPos); 
+            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
+            // Logica consegna "Bump-Proof"
+            if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
+                ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); 
+                _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+                if (IsExhausted) StartAutoSleep(); else GoIdle(); 
+            } 
+        }
 
         private GenericDepotController FindNearestDepot() { GenericDepotController best = null; float minDist = float.MaxValue; foreach (var d in FindObjectsOfType<GenericDepotController>()) { float dist = Vector3.Distance(transform.position, d.transform.position); if (dist < minDist) { minDist = dist; best = d; } } return best; }
         private void StartAutoSleep() { var bench = FindFreeBench(); if (bench != null) { GoToBench(bench); return; } var house = FindFreeHouse(); if (house != null) { GoToHouseAndSleep(house); return; } GoResting(); }

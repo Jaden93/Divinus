@@ -25,10 +25,12 @@ namespace DivinePrototype
 
         private LineRenderer _lr;
         private Vector3      _target;
+        public GameObject impactVFXPrefab;
+
 
         // ── Static factory ───────────────────────────────────────────────
 
-        public static LightningStrike Spawn(Vector3 target)
+public static LightningStrike Spawn(Vector3 target, GameObject impactPrefab = null)
         {
             var go = new GameObject("LightningStrike");
             var lr = go.AddComponent<LineRenderer>();
@@ -47,6 +49,7 @@ namespace DivinePrototype
 
             var strike = go.AddComponent<LightningStrike>();
             strike._target = target;
+            strike.impactVFXPrefab = impactPrefab;
             go.transform.position = target;
             return strike;
         }
@@ -68,7 +71,7 @@ namespace DivinePrototype
             StartCoroutine(DoStrike());
         }
 
-        private IEnumerator DoStrike()
+private IEnumerator DoStrike()
         {
             // Build zigzag path from sky to target
             Vector3 start = _target + Vector3.up * strikeHeight;
@@ -90,6 +93,12 @@ namespace DivinePrototype
 
             _lr.positionCount = pts.Length;
             _lr.SetPositions(pts);
+
+            if (impactVFXPrefab != null)
+            {
+                var vfx = Instantiate(impactVFXPrefab, _target, Quaternion.identity);
+                Destroy(vfx, 2f);
+            }
 
             // Flash: keep visible for flashDuration
             yield return new WaitForSeconds(flashDuration);

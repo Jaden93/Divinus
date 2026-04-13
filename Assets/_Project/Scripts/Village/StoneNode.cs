@@ -13,13 +13,16 @@ namespace DivinePrototype
         public float shrinkDuration = 1.0f;    // durata dello sgonfiamento
         public float sinkDepth = 1.0f;       // quanto scende nel terreno
 
-        private void Start()
+        protected override void Awake()
         {
+            base.Awake();
             resourceName = "Stone";
-            // Assicuriamoci che il tag sia corretto se necessario, 
-            // ma usiamo il sistema basato su componenti del ForestManager
         }
 
+        private void Start()
+        {
+            // resourceName già impostato in Awake
+        }
         protected override void OnDepleteVisuals()
         {
             assignedVillager = null;

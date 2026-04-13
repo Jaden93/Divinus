@@ -656,6 +656,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28326c0ea98f62949828be4eaee578d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.VillagerController
+  personality:
+    primaryTrait: 0
+    courageMultiplier: 0
+    altruismMultiplier: 0
+    loyaltySensitivity: 0
   moveSpeed: 2
   waypointStopDistance: 0.3
   wanderRadius: 10
@@ -663,6 +668,8 @@ MonoBehaviour:
   idleMaxDuration: 4
   chopDuration: 3
   taskStopDistance: 0.6
+  miningVFXPrefab: {fileID: 6810313361054713740, guid: 570161e26455a1b4188da23733bcd4f7, type: 3}
+  maxHealth: 100
   maxEnergy: 100
   energyDrainPerSecond: 8
   exhaustionThreshold: 20
@@ -670,6 +677,8 @@ MonoBehaviour:
   restDuration: 8
   restRestoreAmount: 60
   sleepEnergyRestorePerSecond: 15
+  loyalty: 50
+  perceptionRadius: 20
 --- !u!114 &944550089006198805
 MonoBehaviour:
   m_ObjectHideFlags: 0

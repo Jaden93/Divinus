@@ -25,6 +25,21 @@ namespace DivinePrototype
         public NodeState State { get; protected set; } = NodeState.Intact;
         protected VillagerController assignedVillager;
 
+        protected virtual void Awake()
+        {
+            // Aggiunge ostacolo NavMesh per evitare che i villager passino attraverso il modello
+            var obstacle = GetComponent<UnityEngine.AI.NavMeshObstacle>();
+            if (obstacle == null) obstacle = gameObject.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+            
+            obstacle.carving = true;
+            obstacle.carveOnlyStationary = false;
+            obstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+            // Impostiamo una dimensione standard se non rileva collider
+            var col = GetComponent<Collider>();
+            if (col != null) obstacle.size = col.bounds.size;
+            else obstacle.size = Vector3.one * 2f;
+        }
+
         public virtual bool TryAssign(VillagerController villager)
         {
             if (State != NodeState.Intact || amount <= 0) return false;

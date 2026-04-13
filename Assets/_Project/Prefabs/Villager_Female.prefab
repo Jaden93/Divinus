@@ -104,6 +104,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1454230273638898463, guid: ba788128e3dbf32459981823941f3682, type: 3}
+      propertyPath: miningVFXPrefab
+      value: 
+      objectReference: {fileID: 6810313361054713740, guid: 570161e26455a1b4188da23733bcd4f7, type: 3}
     - target: {fileID: 1628260676949083978, guid: ba788128e3dbf32459981823941f3682, type: 3}
       propertyPath: m_IsActive
       value: 0
