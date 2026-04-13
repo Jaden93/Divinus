@@ -1,0 +1,46 @@
+Ruolo e Contesto:
+Agisci come un Senior Unity C# Developer specializzato in giochi action/brawler per Android. Abbiamo discusso l'architettura di un sistema di combattimento corpo a corpo per dei "villagers". Devi generare o aggiornare gli script necessari per implementare questa esatta logica.
+
+Architettura richiesta:
+Il sistema si basa su Hitbox (attacco), Hurtbox (difesa) e un CombatController che fa da ponte tra la fisica, le animazioni e gli stati dell'IA.
+
+Scrivi/Aggiorna i seguenti script C#:
+
+Hitbox.cs:
+
+Deve stare sull'osso della mano (Collider in modalità Trigger).
+
+Metodi pubblici EnableHitbox() e DisableHitbox().
+
+Usa OnTriggerEnter per rilevare collisioni solo con il Layer "Hurtbox".
+
+Hurtbox.cs:
+
+Deve avere un enum BodyPart (Head = 1, Body = 2).
+
+Un riferimento allo script principale della salute/IA del difensore per comunicargli quando viene colpito, passandogli i danni, l'HitType (1 o 2) e la posizione dell'attaccante.
+
+CombatController.cs (Script principale del personaggio):
+
+Gestione Animation Events: Deve contenere i metodi AnimEvent_EnablePunch() e AnimEvent_DisablePunch() che chiamano la Hitbox della mano.
+
+Hit Stun e Knockback: Un metodo TakeHit(int damage, int hitType, Vector3 attackerPosition). Questo metodo deve:
+a) Calcolare la direzione del knockback (PosizioneDifensore - PosizioneAttaccante) e applicare un Rigidbody.AddForce (ForceMode.Impulse).
+b) Fermare temporaneamente il movimento/IA del personaggio (Hit Stun).
+c) Inviare i parametri all'Animator: animator.SetInteger("HitType", hitType) e animator.SetTrigger("TakeDamage").
+
+VillagerAI.cs (Bozza della Macchina a Stati):
+
+Implementa una semplice State Machine con gli stati: Idle, Combat, HitStun, e Flee (Fuga).
+
+Quando la salute scende sotto una certa soglia, passa allo stato Flee (muovi il personaggio nella direzione opposta al nemico).
+
+Aggiungi un metodo DashAttack(): un attacco in corsa (lunging) che applica una forza in avanti per colmare la distanza e prendere chi scappa.
+
+Vincoli di Performance e Stile:
+
+Ottimizza per Android: niente GetComponent o Find dentro Update o OnTriggerEnter. Usa il caching in Awake.
+
+Gestisci le collisioni tramite LayerMask.
+
+Aggiungi commenti in italiano per spiegarmi i passaggi logici chiave.

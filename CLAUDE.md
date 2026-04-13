@@ -121,183 +121,65 @@ Regole asset:
 - `Assets/_Project/Scenes`
 - `Assets/_Project/Audio`
 
-## Prima roadmap MVP — 2 settimane
+## Stato del Progetto (Aprile 2026)
 
-### Settimana 1
-#### Task 1 — Setup progetto
-Obiettivo:
-- Creare progetto Unity Android.
-- Impostare cartelle base.
-- Preparare scena `VillagePrototype`.
-- Configurare camera isometrica o semi-top-down adatta al touch.
+### Feature Implementate e Integrate
+- **Risorse Centralizzate (`ResourceManager.cs`)**: Gestione di Legna e Pietra con cap dinamici.
+- **Loop Risorse Completo**:
+  - **Taglialegna**: Taglio alberi per legna.
+  - **Minatore**: Estrazione pietra da nodi rocciosi.
+  - **Trasporto**: I villager portano le risorse al deposito.
+- **Costruzioni**:
+  - **Casa (Tier 1)**: Costa 6 Legna e 3 Pietra. Navigazione NavMesh funzionante (entrata/uscita).
+  - **Deposito Generico**: Aumenta i cap delle risorse (Legna: 30, Pietra: 20).
+- **Sistemi Divini**:
+  - **Smite**: Fulmine che colpisce oggetti (danneggiandoli) o villager.
+  - **Morte**: I villager possono morire per Smite, sfinimento (Energia = 0), morte ( vita = 0 ) .
+- **UI & Feedback**:
+  - **DebugHUD**: Visualizzazione real-time di Legna, Pietra e Fede.
+  - **ObjectiveHintUI**: Guida contestuale per il giocatore (es. "Raccogli 6 legna e 3 pietra").
 
-Definition of done:
-- Il progetto builda in editor senza errori.
-- Esiste una scena giocabile vuota con terreno e camera.
+### Sistemi Core
+- `TouchInputSystem`: Selezione e interazione touch/mouse.
+- `VillageFaithSystem`: Fede come unica risorsa divina (sostituisce il Mana).
+- `VillagerController`: Macchina a stati (Idle, Work, Sleep, Dead, Mining).
+- `ConstructionSite`: Gestione cantieri con costi e timer.
 
-#### Task 2 — Import asset Blender
-Obiettivo:
-- Importare casa e popolano.
-- Verificare scala, pivot, materiali e collider.
-- Creare prefab base per casa e popolano.[cite:24][cite:27]
+## Roadmap Sprint 1: "La Mano e il Cuore" (In Corso)
+*Focus: Interazione diretta, sopravvivenza e feedback sociale immediato.*
 
-Definition of done:
-- La casa è visibile e posizionata correttamente sul terreno.
-- Il popolano è visibile, con orientamento corretto.
-- I prefab sono riutilizzabili.
+1. **Animator Morte & Revive** (ID 1-2):
+   - Setup trigger animator `isDead`.
+   - Logica potere `Revive` (costo 15 Fede, ripristino 50% energia).
+2. **Drag & Drop Totale & Ruota Contestuale** (ID 16-3):
+   - Possibilità di sollevare e spostare fisicamente Villager e Oggetti.
+   - Menu radiale per interazioni: *Sposta*, *Dettagli*, *Punisci*, *Estetica*.
+3. **Smite su Risorse & Logica Depot** (ID 17-18):
+   - Smite su alberi/rocce distrugge il nodo e genera cubi risorsa raccoglibili.
+   - Start con 5 legna; tutorial per il posizionamento obbligatorio del Deposito.
+4. **Sistema Strade & Navigazione** (ID 19):
+   - Implementazione strade con costo NavMesh ridotto (preferenza di percorso).
+   - *Strategia Collisioni*: Uso di `ObstacleAvoidanceType.HighQuality` e pesi variabili per evitare ingorghi sui path stretti.
+5. **Malattia & Ciclo Giorno/Notte** (ID 9-5):
+   - Stato `Sickness` (Pioggia) e necessità di riposo notturno sincronizzato.
+   - Arredamento obbligatorio (**Letto, Luce, Armadio**) per rendere le case abitabili.
+6. **Allineamento Visuale & Pensieri** (ID 10-11):
+   - VFX Passi Divini (Fiori vs Cenere) e Speech Bubbles (🤒, 🌩️, ❤️).
 
-#### Task 3 — Movimento base NPC
-Obiettivo:
-- Dare al popolano un comportamento semplice: idle e camminata verso waypoint.
-- Aggiungere stati minimi leggibili.
+## Roadmap Sprint 2: "Entità e Trasformazione" (Pianificato)
+*Focus: Unità speciali, biomi e evoluzione del mondo.*
 
-Definition of done:
-- Il popolano alterna idle e walk.
-- Il comportamento è stabile e non glitcha.
+1. **Il Missionario (ID 12)**: Unità IA benevola che cura e benedice.
+2. **Terraforming Avanzato & Mestieri**: Cambio reale dei biomi e introduzione di *Minatore* e *Agricoltore*.
+3. **Creatura Divina (Avatar)**: Introduzione del compagno animale.
+4. **Evoluzione Architettonica**: Case che cambiano stile visivo in base alla moralità.
 
-#### Task 4 — Touch input divino
-Obiettivo:
-- Implementare tap e drag basilari.
-- Consentire la selezione di un punto del terreno o di un NPC.
-- Aggiungere un feedback visivo semplice sul tocco.
+## Visione a Lungo Termine (Post-Sprint)
+- **Mondo Sferico**: Rendering dell'isola su superficie curva (Vertex Shader).
+- **Cataclismi**: Poteri di distruzione su larga scala (Tornado, Terremoti).
+- **Multi-Villaggio**: Simulazione di comunità diverse in conflitto o alleanza.
 
-Definition of done:
-- Da editor con mouse e su touch il click/tap è rilevato.
-- Il feedback è visibile e coerente.
 
-### Settimana 2
-#### Task 5 — Fede del villaggio
-Obiettivo:
-- Introdurre variabile `faith` globale del villaggio.
-- Creare una semplice barra UI.
-- Collegare le azioni divine a variazioni della fede.
-
-Definition of done:
-- La barra si aggiorna in tempo reale.
-- Il valore è clampato e leggibile.
-
-<!-- SKIPPED — Task 6 — Azione divina primaria
-Motivo: rimandato dopo MVP. Il loop base (NPC + fede + vittoria) deve essere stabile prima di aggiungere azioni divine esplicite.
-Obiettivo originale:
-- Implementare una sola azione, ad esempio `BlessVillage`.
-- L'azione deve attivarsi con tap su area valida.
-- L'effetto deve avere feedback visivo e sonoro minimo.
--->
-
-#### Task 7 — Reazione del popolano
-Obiettivo:
-- Far reagire l'NPC all'azione divina.
-- Reazioni minime: happy o pray, eventualmente fear in caso di azione negativa.[cite:1][cite:7]
-
-Definition of done:
-- L'NPC cambia stato in base all'evento.
-- Il feedback è leggibile anche senza debug UI.
-
-#### Task 8 — Condizione di vittoria
-Obiettivo:
-- Chiudere il loop MVP con obiettivo di fede al 100%.
-- Mostrare schermata semplice di successo.
-
-Definition of done:
-- La partita ha inizio, progresso e fine.
-- Il ciclo completo dura circa 60-90 secondi.
-
-## Prompt base per Claude Code
-
-### Prompt 1 — Pianificazione iniziale
-```text
-Leggi questo file CLAUDE.md e proponi un piano di implementazione in massimo 6 step per creare il prototipo Unity Android descritto. Non scrivere ancora codice. Evidenzia i file C# che pensi di creare, le scene coinvolte e i rischi tecnici principali. Mantieni lo scope strettamente MVP.
-```
-
-### Prompt 2 — Setup progetto
-```text
-Leggi CLAUDE.md. Implementa solo il setup iniziale del prototipo Unity:
-- cartelle base in Assets/_Project
-- scena VillagePrototype
-- terreno semplice
-- camera semi-top-down adatta al touch
-Non aggiungere gameplay. Prima mostrami un piano breve, poi applica le modifiche. Alla fine dammi checklist manuale di verifica in editor.
-```
-
-### Prompt 3 — Import prefab
-```text
-Leggi CLAUDE.md. Prepara il progetto per usare i due asset Blender già esistenti: casa e popolano. Crea prefab, assegna collider semplici, verifica scala e orientamento. Non implementare ancora AI o UI. Prima proponi un piano breve e limita le modifiche ai file strettamente necessari.
-```
-
-### Prompt 4 — NPC base
-```text
-Leggi CLAUDE.md. Implementa il comportamento base del popolano con stati idle e walk tra waypoint. Usa codice semplice e modulare. Non introdurre sistemi complessi di behaviour tree. A fine task aggiungi checklist di test manuale.
-```
-
-### Prompt 5 — Touch input
-```text
-Leggi CLAUDE.md. Implementa un sistema touch/mouse minimale per selezionare terreno o NPC nella scena VillagePrototype. Aggiungi feedback visivo semplice sul punto toccato. Non creare ancora poteri multipli.
-```
-
-### Prompt 6 — Fede e azione divina
-```text
-Leggi CLAUDE.md. Implementa una variabile globale di fede del villaggio, una barra UI minimale e una sola azione divina chiamata BlessVillage che aumenta la fede quando il giocatore tocca una zona valida. Collega una reazione semplice del popolano. Mantieni il codice piccolo e leggibile.
-```
-
-## Regole di revisione
-Ogni pull o modifica generata da Claude Code deve essere controllata con queste domande:
-- Questa feature serve davvero all'MVP attuale?
-- Il codice è il minimo necessario?
-- È testabile manualmente in meno di 2 minuti?
-- Introduce complessità futura non richiesta?
-- Mantiene il feeling di influenza indiretta tipico del riferimento originale?[cite:1]
-
-### Nota per step successivi
-
-Dopo l’MVP 0, le prossime feature prioritarie sono:
-
-- **Arredamento obbligatorio della casa**
-  - Una casa costruita non è abitabile di default.
-  - Perché un villager la usi per dormire o torni a casa in idle, il giocatore deve inserirvi:
-    - un **letto** (di qualsiasi tipo disponibile);
-    - un **armadio** (di qualsiasi tipo disponibile);
-    - una **torcia o lumino** (fonte di luce).
-  - Finché manca anche solo un elemento, la casa è "guscio vuoto" — il villager non la riconosce come sua.
-  - Il piazzamento arredi avviene tramite drag & drop (stesso sistema della ruota contestuale).
-  - Gli arredi sono oggetti fisici nella scena, non solo dati UI.
-  - Una volta completata (tutti e 3 gli arredi presenti), la casa viene **assegnata automaticamente al primo villager senza casa** — non casualmente, ma in ordine di priorità (chi è senza casa da più tempo).
-  - Un villager senza casa **dorme per terra sul posto** dove si trova quando arriva la notte. Recupera energia molto lentamente rispetto a chi ha un letto.
-
-- **Case multiple**
-  - Permettere di costruire più case di legno.
-  - Ogni casa richiede il proprio set di arredi per essere abitabile.
-  - Non ci sono limiti fissi al numero di case, finché ci sono risorse.
-
-- **Punti di riposo leggeri (es. panca)**
-  - Nuovo tipo di costruzione a basso costo (prima panca).
-  - I villager stanchi possono usarla per recuperare un po’ di energia senza tornare a casa.
-  - Non richiede arredamento.
-
-Questi sistemi devono essere implementati in step separati, solo dopo che il loop base uomo → ascia → legna → casa → sonno è stabile.
-
-## Espansione dopo MVP
-
-Solo dopo che l’MVP 0 (uomo → ascia → legna → prima casa) è stabile e divertente, le feature candidate sono:
-
-- Ruolo **minatore**:
-  - nuovi nodi di risorsa (pietra);
-  - uso della pietra per case Tier 2 e edifici avanzati.
-
-- **Casa di legno Tier 2** (legno + pietra):
-  - upgrade delle case esistenti;
-  - riposo migliore e possibili bonus alla produttività.
-
-- **Menu delle creazioni**:
-  - tab Strumenti (es. AXE) da trascinare sui villager;
-  - tab Costruzioni (case, depositi, punti di riposo) con costi in risorse e timer.
-
-- Punti di riposo leggeri:
-  - piccole costruzioni (panchine, fuochi) per recuperare un po’ di stanchezza senza dormire.
-
-- Prime decorazioni estetiche:
-  - elementi che non cambiano molto il power, ma rendono il villaggio più bello da osservare.
-
-La monetizzazione (timer accelerabili, lavoratori aggiuntivi) dovrà appoggiarsi a questi sistemi, non sostituirli, e verrà progettata solo dopo che il loop di base e il ritmo giornaliero saranno chiari.
 
 ---
 

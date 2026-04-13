@@ -426,6 +426,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -1580,6 +1581,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -1621,6 +1623,7 @@ MonoBehaviour:
   chopDuration: 3
   taskStopDistance: 1.5
   miningVFXPrefab: {fileID: 0}
+  maxHealth: 100
   maxEnergy: 100
   energyDrainPerSecond: 8
   exhaustionThreshold: 20
@@ -2190,6 +2193,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -2963,6 +2967,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -3175,6 +3180,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -3216,6 +3222,7 @@ MonoBehaviour:
   chopDuration: 3
   taskStopDistance: 1.5
   miningVFXPrefab: {fileID: 0}
+  maxHealth: 100
   maxEnergy: 100
   energyDrainPerSecond: 8
   exhaustionThreshold: 20
@@ -3396,6 +3403,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -3437,6 +3445,7 @@ MonoBehaviour:
   chopDuration: 3
   taskStopDistance: 1.5
   miningVFXPrefab: {fileID: 0}
+  maxHealth: 100
   maxEnergy: 100
   energyDrainPerSecond: 8
   exhaustionThreshold: 20
@@ -5484,6 +5493,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1373577018
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3813630712526185568, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_Name
+      value: GenericDepot
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 7.6601233
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.000000078637186
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -4
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7376462348547253935, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9d708597742424f479b8c8f37ebe5a86, type: 3}
 --- !u!1 &1377019996
 GameObject:
   m_ObjectHideFlags: 0
@@ -5608,6 +5674,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   onObjectTapped:
+    m_PersistentCalls:
+      m_Calls: []
+  onResourceTapped:
     m_PersistentCalls:
       m_Calls: []
 --- !u!4 &1425946354
@@ -5981,6 +6050,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DivinePrototype.ForestNode
   resourceName: Wood
   amount: 3
+  resourceCubePrefab: {fileID: 0}
   onDepleted:
     m_PersistentCalls:
       m_Calls: []
@@ -8005,66 +8075,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: -8728998184671239757, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_Name
-      value: window_3
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -1.5102438
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -1.5566024
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: -90
-      objectReference: {fileID: 0}
-    - target: {fileID: -8657434364802654418, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_Name
-      value: window_2
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_Name
-      value: Wood_house (1)
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 1.52
-      objectReference: {fileID: 0}
-    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.39
-      objectReference: {fileID: 0}
-    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -3.14
-      objectReference: {fileID: 0}
     - target: {fileID: 1671745165689634718, guid: 391f084a08a115844865d0b961079e39, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -8124,6 +8134,66 @@ PrefabInstance:
     - target: {fileID: 7357300758910981258, guid: 391f084a08a115844865d0b961079e39, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8728998184671239757, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_Name
+      value: window_3
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.5102438
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -1.5566024
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -90
+      objectReference: {fileID: 0}
+    - target: {fileID: -8657434364802654418, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_Name
+      value: window_2
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_Name
+      value: Wood_house (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.39
+      objectReference: {fileID: 0}
+    - target: {fileID: 8027220158109770992, guid: f1e850e8c1d755e44a9d253341609659, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -3.14
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
@@ -8235,3 +8305,4 @@ SceneRoots:
   - {fileID: 1875751482}
   - {fileID: 1952010433}
   - {fileID: 2109660989}
+  - {fileID: 1373577018}

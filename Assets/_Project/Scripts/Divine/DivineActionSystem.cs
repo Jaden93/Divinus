@@ -9,7 +9,7 @@ namespace DivinePrototype
         SpawnFemale,
         SpawnDog,
         SpawnCat,
-        Smite,   // colpisce e danneggia oggetti/villager
+        Smite,   // colpisce e danneggia oggetti/villager/risorse
         Repair,  // ripristina oggetti danneggiati
         Revive   // riporta in vita un villager morto
     }
@@ -49,6 +49,7 @@ namespace DivinePrototype
                 touchInput.onTerrainTapped.AddListener(OnTerrainTapped);
                 touchInput.onVillagerTapped.AddListener(OnVillagerTapped);
                 touchInput.onObjectTapped.AddListener(OnObjectTapped);
+                touchInput.onResourceTapped.AddListener(OnResourceTapped);
             }
             else
             {
@@ -63,6 +64,7 @@ namespace DivinePrototype
                 touchInput.onTerrainTapped.RemoveListener(OnTerrainTapped);
                 touchInput.onVillagerTapped.RemoveListener(OnVillagerTapped);
                 touchInput.onObjectTapped.RemoveListener(OnObjectTapped);
+                touchInput.onResourceTapped.RemoveListener(OnResourceTapped);
             }
         }
 
@@ -97,21 +99,15 @@ namespace DivinePrototype
             switch (PendingPower)
             {
                 case DivinePower.Smite:
-                    // Verifica se abbiamo abbastanza fede (anche se Smite è solitamente punitivo, costa potere divino)
-                    if (faithSystem != null && faithSystem.Faith < faithCostSmite) 
-                    {
-                        Debug.Log("Fede insufficiente per Smite");
-                        return;
-                    }
+                    if (faithSystem != null && faithSystem.Faith < faithCostSmite) return;
 
                     LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f);
                     if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
                     
-                    // Trigger death
+                    // Morte istantanea
                     villager.Die();
                     
                     StartCoroutine(FlashVillager(villager, new Color(1f, 0.9f, 0.1f), 0.3f));
-                    Debug.Log($"[DivineActionSystem] Smite villager: {villager.name}");
                     
                     if (FloatingTextSpawner.Instance != null)
                         FloatingTextSpawner.Instance.Spawn("Smote!", villager.transform.position + Vector3.up * 2f, Color.red);
@@ -127,23 +123,12 @@ namespace DivinePrototype
                 case DivinePower.Revive:
                     if (villager.CurrentState == VillagerController.VillagerState.Dead)
                     {
-                        if (faithSystem != null && faithSystem.Faith < faithCostRevive)
-                        {
-                            Debug.Log("Fede insufficiente per Revive");
-                            if (FloatingTextSpawner.Instance != null)
-                                FloatingTextSpawner.Instance.Spawn("Not enough Faith!", villager.transform.position + Vector3.up * 2f, Color.yellow);
-                            return;
-                        }
-
+                        if (faithSystem != null && faithSystem.Faith < faithCostRevive) return;
                         if (faithSystem != null) faithSystem.AddFaith(-faithCostRevive);
                         
-                        villager.Revive(0.5f); // Resuscita con 50% energia
+                        villager.Revive(0.5f);
                         StartCoroutine(FlashVillager(villager, new Color(0.4f, 1f, 0.4f), 1.0f));
-                        Debug.Log($"[DivineActionSystem] Revive villager: {villager.name}");
                         
-                        if (FloatingTextSpawner.Instance != null)
-                            FloatingTextSpawner.Instance.Spawn("Resurrected!", villager.transform.position + Vector3.up * 2f, Color.cyan);
-
                         DivineEventManager.Broadcast(new DivineEvent { 
                             Type = DivineEventType.Revive, 
                             Position = villager.transform.position, 
@@ -165,7 +150,6 @@ namespace DivinePrototype
                     LightningStrike.Spawn(obj.transform.position + Vector3.up * 0.5f);
                     obj.TakeDamage();
                     if (faithSystem != null) faithSystem.AddFaith(-5f);
-                    Debug.Log($"[DivineActionSystem] Smite su {obj.name} → stato: {obj.CurrentState}");
                     
                     DivineEventManager.Broadcast(new DivineEvent { 
                         Type = DivineEventType.Smite, 
@@ -178,7 +162,6 @@ namespace DivinePrototype
                 case DivinePower.Repair:
                     obj.Repair();
                     if (faithSystem != null) faithSystem.AddFaith(3f);
-                    Debug.Log($"[DivineActionSystem] Riparato {obj.name}");
                     
                     DivineEventManager.Broadcast(new DivineEvent { 
                         Type = DivineEventType.Repair, 
@@ -187,67 +170,59 @@ namespace DivinePrototype
                         Radius = 15f 
                     });
                     break;
-
-                default:
-                    // Nessun potere attivo: tap neutro, mostra solo feedback
-                    Debug.Log($"[DivineActionSystem] Tap su oggetto: {obj.name} (stato: {obj.CurrentState})");
-                    break;
             }
         }
 
-        /// <summary>
-        /// Chiamato da AxeActionUI quando l'icona ascia viene trascinata sul popolano.
-        /// </summary>
+        private void OnResourceTapped(ResourceNode node)
+        {
+            if (PendingPower != DivinePower.Smite) return;
+
+            if (faithSystem != null && faithSystem.Faith < faithCostSmite) return;
+
+            LightningStrike.Spawn(node.transform.position + Vector3.up * 1.5f);
+            if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
+
+            // Usa la logica interna del nodo per il depletamento da Smite (che spawna i cubi)
+            node.SmiteDeplete();
+
+            DivineEventManager.Broadcast(new DivineEvent { 
+                Type = DivineEventType.Smite, 
+                Position = node.transform.position, 
+                Target = node.gameObject, 
+                Radius = 15f 
+            });
+        }
+
         public void GiveAxe(VillagerController villager)
         {
             if (gameState == null || gameState.HasAxe) return;
             gameState.HasAxe = true;
             villager.HasPersonalAxe = true;
             StartCoroutine(FlashVillager(villager, new Color(1f, 0.85f, 0.2f), 1.2f));
-            Debug.Log("[DivineActionSystem] Ascia donata al popolano.");
         }
 
-        /// <summary>
-        /// Chiamato da PickaxeActionUI quando l'icona piccone viene trascinata sul popolano.
-        /// </summary>
         public void GivePickaxe(VillagerController villager)
         {
-            // Per ora non usiamo HasPickaxe in GameStateSystem per non corromperlo,
-            // ma potremmo aggiungerlo in futuro se necessario.
             villager.HasPersonalPickaxe = true;
             StartCoroutine(FlashVillager(villager, new Color(0.2f, 0.85f, 1f), 1.2f));
-            Debug.Log("[DivineActionSystem] Piccone donato al popolano.");
         }
 
-        // ── Spawn ────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Chiamato da VillagerActionUI dopo un drag-drop valido.
-        /// </summary>
         public void SpawnVillagerAt(bool isFemale, Vector3 worldPos)
             => TrySpawnVillager(isFemale, worldPos);
 
         private void TrySpawnVillager(bool isFemale, Vector3 tapPosition)
         {
             var prefab = isFemale ? villagerFemalePrefab : villagerMalePrefab;
-            if (prefab == null)
-            {
-                Debug.LogError($"[DivineActionSystem] Prefab {(isFemale ? "femmina" : "maschio")} non assegnato.");
-                return;
-            }
+            if (prefab == null) return;
 
             GameObject go = Instantiate(prefab, tapPosition, Quaternion.identity);
             go.name = isFemale ? "Villager_F" : "Villager_M";
-
             if (gameState != null) gameState.HasVillager = true;
-
             ClearPendingPower();
-            Debug.Log($"[DivineActionSystem] Villager creato ({(isFemale ? "donna" : "uomo")}).");
         }
 
         private System.Collections.IEnumerator FlashVillager(VillagerController villager, Color flashColor, float duration)
         {
-            // Supporta sia SkinnedMeshRenderer (vecchia mesh) che MeshRenderer (nuove mesh)
             Renderer rend = villager.GetComponentInChildren<SkinnedMeshRenderer>();
             if (rend == null) rend = villager.GetComponentInChildren<MeshRenderer>();
             if (rend == null) yield break;
@@ -257,7 +232,5 @@ namespace DivinePrototype
             yield return new WaitForSeconds(duration);
             if (mat != null) mat.color = original;
         }
-
-
     }
 }

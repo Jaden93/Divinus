@@ -15,16 +15,16 @@ namespace DivinePrototype
         [Header("Resource Settings")]
         public string resourceName = "Wood";
         public int amount = 3;
+        
+        [Header("Divine Smite Visuals")]
+        public GameObject resourceCubePrefab; 
 
         [Header("Events")]
-        public UnityEvent<ResourceNode> onDepleted;
+        public UnityEvent<ResourceNode> onDepleted = new UnityEvent<ResourceNode>();
 
         public NodeState State { get; protected set; } = NodeState.Intact;
         protected VillagerController assignedVillager;
 
-        /// <summary>
-        /// Assegna un villager a questa risorsa.
-        /// </summary>
         public virtual bool TryAssign(VillagerController villager)
         {
             if (State != NodeState.Intact || amount <= 0) return false;
@@ -33,9 +33,6 @@ namespace DivinePrototype
             return true;
         }
 
-        /// <summary>
-        /// Libera l'assegnazione senza depletare.
-        /// </summary>
         public virtual void Release()
         {
             if (State == NodeState.BeingChopped)
@@ -43,40 +40,71 @@ namespace DivinePrototype
             assignedVillager = null;
         }
 
-        /// <summary>
-        /// Preleva una quantità specifica. Se arriva a zero, attiva Deplete().
-        /// </summary>
         public virtual int TakeResource(int requestedAmount)
         {
             int taken = Mathf.Min(requestedAmount, amount);
             amount -= taken;
-
-            if (amount <= 0)
-            {
-                Deplete();
-            }
-            else
-            {
-                Release();
-            }
-
+            if (amount <= 0) Deplete();
+            else Release();
             return taken;
         }
 
-        /// <summary>
-        /// Gestisce la distruzione o l'animazione finale della risorsa.
-        /// </summary>
         public virtual void Deplete()
         {
             if (State == NodeState.Depleted) return;
             State = NodeState.Depleted;
-            onDepleted?.Invoke(this);
+            onDepleted.Invoke(this);
             OnDepleteVisuals();
         }
 
         /// <summary>
-        /// Da implementare nelle classi derivate per effetti visivi specifici (es. caduta albero).
+        /// Forza il depletamento immediato (usato dallo Smite) spawnando cubi fisici.
         /// </summary>
+        public virtual void SmiteDeplete()
+        {
+            if (State == NodeState.Depleted) return;
+
+            Debug.Log($"[ResourceNode] SmiteDeplete su {name}. Cubi da spawnare: {amount}");
+
+            int cubesToSpawn = amount;
+            if (cubesToSpawn <= 0) cubesToSpawn = 1;
+
+            for (int i = 0; i < cubesToSpawn; i++)
+            {
+                // Spawna leggermente più in alto per sicurezza
+                Vector3 spawnPos = transform.position + Vector3.up * 2.0f + Random.insideUnitSphere * 0.5f;
+                GameObject cube;
+
+                if (resourceCubePrefab != null)
+                {
+                    cube = Instantiate(resourceCubePrefab, spawnPos, Quaternion.identity);
+                }
+                else
+                {
+                    // FALLBACK: Crea un cubo primitivo SOLIDO (non trigger)
+                    cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    cube.transform.position = spawnPos;
+                    cube.transform.localScale = Vector3.one * 0.4f;
+                    
+                    var rb = cube.AddComponent<Rigidbody>();
+                    rb.mass = 0.5f;
+                    rb.collisionDetectionMode = CollisionDetectionMode.Continuous; // Più preciso per oggetti piccoli
+                    
+                    // Il BoxCollider creato da CreatePrimitive è già NON-TRIGGER (solido)
+                    
+                    var rend = cube.GetComponent<Renderer>();
+                    if (rend != null) rend.material.color = (resourceName == "Stone") ? Color.gray : new Color(0.5f, 0.25f, 0f);
+                }
+
+                var pickup = cube.GetComponent<ResourcePickup>();
+                if (pickup == null) pickup = cube.AddComponent<ResourcePickup>();
+                
+                pickup.Initialize(resourceName, 1);
+            }
+
+            Deplete();
+        }
+
         protected abstract void OnDepleteVisuals();
     }
 }

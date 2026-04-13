@@ -1,0 +1,22 @@
+Contesto: Sto sviluppando un sistema di terreno procedurale in Unity utilizzando un GameObject con Mesh Renderer e Mesh Collider (non il sistema Terrain standard).
+
+Obiettivo: Crea un sistema di "Stati del Terreno" basato su Shader Graph e C#.
+
+Specifiche Tecniche richieste:
+
+Shader Graph: Progetta la logica per un materiale che effettui il blending tra 3 Texture2D (Arido, Coltivato, Fiorente) utilizzando un nodo Simple Noise per rendere i bordi della transizione irregolari e organici. Il blending deve essere pilotato da due parametri float: _Umidita e _Fioritura.
+
+C# Scripting: Scrivi uno script che gestisca la transizione di questi parametri tramite material.SetFloat.
+
+Spawning Procedurale: Implementa una funzione nello script che, quando lo stato è 'Fiorente', utilizzi il Physics.Raycast verso il MeshCollider del terreno per posizionare casualmente dei Prefab (fiori/erba) sulla superficie, assicurandosi che siano orientati correttamente rispetto alla normale della superficie o con rotazione casuale su Y.
+
+Ottimizzazione: Includi un sistema per distruggere o disattivare gli oggetti spawnati quando il terreno torna allo stato 'Arido'.
+
+Output desiderato: Fornisci il codice C# completo, una spiegazione dei nodi chiave per lo Shader Graph e i passaggi per collegare i parametri tra script e materiale.
+
+Perché questo prompt funziona:
+Definisce l'ambiente: Specifica che non usi il sistema Terrain di Unity, evitando che l'AI ti dia consigli inutili su strumenti che non stai usando.
+
+Parla il linguaggio tecnico: Usa termini come Physics.Raycast, Simple Noise, Blending e Material Property Blocks, che costringono l'AI a rispondere con precisione chirurgica.
+
+Logica dei parametri: Chiarisce che i cambiamenti devono essere guidati da variabili (0 a 1), facilitando la creazione di animazioni fluide o integrazioni con sistemi di tempo atmosferico.
