@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 namespace DivinePrototype
 {
@@ -11,7 +12,8 @@ namespace DivinePrototype
         SpawnCat,
         Smite,   // colpisce e danneggia oggetti/villager/risorse
         Repair,  // ripristina oggetti danneggiati
-        Revive   // riporta in vita un villager morto
+        Revive,  // riporta in vita un villager morto
+        Messenger // incarica un villager di diffondere la parola
     }
 
     /// <summary>
@@ -31,9 +33,10 @@ namespace DivinePrototype
         public Transform spawnPoint;
 
         [Header("Costi fede")]
-        public float faithCostVillager = 20f;
-        public float faithCostRevive   = 30f;
-        public float faithCostSmite    = 15f;
+        public float faithCostVillager = 0f;
+        public float faithCostRevive   = 0f;
+        public float faithCostSmite    = 0f;
+        public float faithCostMessenger = 0f;
 
         public DivinePower PendingPower { get; private set; } = DivinePower.None;
 
@@ -50,6 +53,7 @@ namespace DivinePrototype
                 touchInput.onVillagerTapped.AddListener(OnVillagerTapped);
                 touchInput.onObjectTapped.AddListener(OnObjectTapped);
                 touchInput.onResourceTapped.AddListener(OnResourceTapped);
+                touchInput.onTombTapped.AddListener(OnTombTapped);
             }
             else
             {
@@ -99,8 +103,6 @@ namespace DivinePrototype
             switch (PendingPower)
             {
                 case DivinePower.Smite:
-                    if (faithSystem != null && faithSystem.Faith < faithCostSmite) return;
-
                     LightningStrike.Spawn(villager.transform.position + Vector3.up * 0.5f);
                     if (faithSystem != null) faithSystem.AddFaith(-faithCostSmite);
                     
@@ -123,10 +125,10 @@ namespace DivinePrototype
                 case DivinePower.Revive:
                     if (villager.CurrentState == VillagerController.VillagerState.Dead)
                     {
-                        if (faithSystem != null && faithSystem.Faith < faithCostRevive) return;
                         if (faithSystem != null) faithSystem.AddFaith(-faithCostRevive);
                         
                         villager.Revive(0.5f);
+                        ReviveVFX.Spawn(villager.transform.position); // Spawna l'effetto procedurale
                         StartCoroutine(FlashVillager(villager, new Color(0.4f, 1f, 0.4f), 1.0f));
                         
                         DivineEventManager.Broadcast(new DivineEvent { 
@@ -139,7 +141,74 @@ namespace DivinePrototype
                         ClearPendingPower();
                     }
                     break;
+
+                case DivinePower.Messenger:
+                    if (villager.CurrentState != VillagerController.VillagerState.Dead)
+                    {
+                        if (faithSystem != null) faithSystem.AddFaith(-faithCostMessenger);
+
+                        StartCoroutine(MessengerRoutine(villager));
+                        StartCoroutine(FlashVillager(villager, new Color(1f, 1f, 0.4f), 1.0f));
+                        ClearPendingPower();
+                    }
+                    break;
             }
+        }
+
+        private IEnumerator MessengerRoutine(VillagerController messenger)
+        {
+            messenger.PauseWork();
+            messenger.SetSocialState(VillagerController.VillagerState.Messenger);
+
+            // Trova un bersaglio lontano
+            VillagerController target = null;
+            VillagerController[] all = FindObjectsOfType<VillagerController>();
+            float maxDist = 0f;
+
+            foreach (var v in all)
+            {
+                if (v == messenger || v.CurrentState == VillagerController.VillagerState.Dead) continue;
+                float d = Vector3.Distance(messenger.transform.position, v.transform.position);
+                if (d > maxDist)
+                {
+                    maxDist = d;
+                    target = v;
+                }
+            }
+
+            if (target != null)
+            {
+                if (FloatingTextSpawner.Instance != null)
+                    FloatingTextSpawner.Instance.Spawn("📣 GO FORTH!", messenger.transform.position + Vector3.up * 2.5f, Color.yellow);
+
+                float timeout = 10f;
+                while (Vector3.Distance(messenger.transform.position, target.transform.position) > 2.0f && timeout > 0)
+                {
+                    if (messenger.CurrentState != VillagerController.VillagerState.Messenger) yield break;
+                    messenger.MoveToSocialTarget(target.transform.position, 2.0f);
+                    timeout -= Time.deltaTime;
+                    yield return null;
+                }
+
+                if (timeout > 0 && messenger.CurrentState == VillagerController.VillagerState.Messenger)
+                {
+                    // Messaggio consegnato
+                    DivineEventManager.Broadcast(new DivineEvent {
+                        Type = DivineEventType.Messenger,
+                        Position = messenger.transform.position,
+                        Target = messenger.gameObject,
+                        Radius = 10f
+                    });
+
+                    target.ModifyLoyalty(10f);
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("🙏 DIVINE WORD", target.transform.position + Vector3.up * 2.5f, Color.cyan);
+                    
+                    yield return new WaitForSeconds(2f);
+                }
+            }
+
+            messenger.ResumeWork();
         }
 
         private void OnObjectTapped(DamageableObject obj)
@@ -191,6 +260,18 @@ namespace DivinePrototype
                 Target = node.gameObject, 
                 Radius = 15f 
             });
+        }
+
+        private void OnTombTapped(TombController tomb)
+        {
+            if (PendingPower == DivinePower.Revive)
+            {
+                if (faithSystem != null && faithSystem.Faith < faithCostRevive) return;
+                if (faithSystem != null) faithSystem.AddFaith(-faithCostRevive);
+
+                tomb.ReviveBuriedVillager();
+                ClearPendingPower();
+            }
         }
 
         public void GiveAxe(VillagerController villager)

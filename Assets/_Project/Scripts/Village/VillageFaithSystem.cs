@@ -11,7 +11,7 @@ namespace DivinePrototype
     {
         [Header("Fede")]
         [Range(0f, 100f)]
-        public float startingFaith = 20f;
+        public float startingFaith = 50f;
 
         [Header("Events")]
         public UnityEvent<float> onFaithChanged;   // valore corrente 0-100

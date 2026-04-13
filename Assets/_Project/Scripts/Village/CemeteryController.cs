@@ -28,9 +28,20 @@ namespace DivinePrototype
         {
             Debug.Log($"[Cemetery] {corpse.name} buried by {undertaker.name}.");
             
-            // Visual/Logic cleanup of corpse
-            corpse.gameObject.SetActive(false);
-            // In a real game, we might spawn a grave marker here.
+            // --- SPAWN TOMB ---
+            Vector3 tombPos = undertaker.transform.position + undertaker.transform.forward * 0.5f;
+            tombPos.y = 0.1f; // Appiattita a terra o leggermente sopra
+
+            GameObject tombGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            tombGO.name = $"Tomb_{corpse.name}";
+            tombGO.transform.position = tombPos;
+            tombGO.transform.localScale = new Vector3(1.2f, 0.2f, 2.0f); // Forma a lastra tombale
+            
+            var rend = tombGO.GetComponent<Renderer>();
+            if (rend != null) rend.material.color = new Color(0.4f, 0.4f, 0.45f); // Grigio pietra
+
+            var tomb = tombGO.AddComponent<TombController>();
+            tomb.Initialize(corpse);
 
             // Reward
             var faith = FindObjectOfType<VillageFaithSystem>();

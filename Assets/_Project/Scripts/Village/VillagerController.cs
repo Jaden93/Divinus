@@ -29,6 +29,10 @@ namespace DivinePrototype
         public float waypointStopDistance = 0.3f;
         public float wanderRadius         = 10f;  
 
+        [Header("Idle")]
+        public float idleMinDuration      = 2f;
+        public float idleMaxDuration      = 4f;
+
         [Header("Work")]
         public float chopDuration     = 3f;
         public float taskStopDistance = 1.5f;
@@ -290,7 +294,64 @@ namespace DivinePrototype
         private bool AgentReachedTarget(Vector3 target, float stopDist) { if (_agent != null && _agent.isOnNavMesh && !_agent.pathPending) return _agent.remainingDistance <= stopDist || Vector3.Distance(Flat(transform.position), Flat(target)) <= stopDist; return Vector3.Distance(Flat(transform.position), Flat(target)) <= stopDist; }
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
         
-        public void Die() { if (CurrentState == VillagerState.Dead) return; if (loyalty >= 90f) { if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("😇 IMMORTAL", transform.position + Vector3.up * 3.5f, Color.yellow); return; } if (_targetResource != null) _targetResource.Release(); if (_targetBench != null) _targetBench.Vacate(); if (_targetHouse != null) _targetHouse.Vacate(); _targetResource = null; _targetBench = null; _targetHouse = null; StopAgent(); CurrentState = VillagerState.Dead; var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 2; col.center = new Vector3(0, 0.2f, 1.2f); col.height = 2.0f; col.radius = 0.5f; } if (_animator != null) { _animator.SetTrigger(ParamDying); _animator.Update(0); } if (GetComponent<CorpseController>() == null) gameObject.AddComponent<CorpseController>(); ClearCarriedVisual(); if (_targetPickup != null) { _targetPickup.Unclaim(); _targetPickup = null; } }
+        public void Die() { 
+            if (CurrentState == VillagerState.Dead) return; 
+
+            // Regola: se Loyalty > 80, il villager sopravvive allo Smite
+            if (loyalty > 80f) { 
+                if (personality?.primaryTrait == PersonalityTrait.Courageous || personality?.primaryTrait == PersonalityTrait.Standard) {
+                    ModifyLoyalty(-50f); // Calo drastico della lealtà
+                    if (FloatingTextSpawner.Instance != null) 
+                        FloatingTextSpawner.Instance.Spawn("💢 DIVINE BETRAYAL!", transform.position + Vector3.up * 3.5f, Color.red);
+                } else {
+                    if (FloatingTextSpawner.Instance != null) 
+                        FloatingTextSpawner.Instance.Spawn("😇 PROTECTED", transform.position + Vector3.up * 3.5f, Color.yellow);
+                }
+                return; // Non muore
+            }
+
+            if (_targetResource != null) _targetResource.Release(); 
+            if (_targetBench != null) _targetBench.Vacate(); 
+            if (_targetHouse != null) _targetHouse.Vacate(); 
+            _targetResource = null; _targetBench = null; _targetHouse = null; StopAgent(); 
+            
+            // --- DROP RESOURCES ON DEATH ---
+            DropCarriedResources();
+
+            CurrentState = VillagerState.Dead; var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 2; col.center = new Vector3(0, 0.2f, 1.2f); col.height = 2.0f; col.radius = 0.5f; } if (_animator != null) { _animator.SetTrigger(ParamDying); _animator.Update(0); } if (GetComponent<CorpseController>() == null) gameObject.AddComponent<CorpseController>(); ClearCarriedVisual(); if (_targetPickup != null) { _targetPickup.Unclaim(); _targetPickup = null; } }
+
+        private void DropCarriedResources()
+        {
+            int woodToDrop = _carriedWoodAmount;
+            int stoneToDrop = _carriedStoneAmount;
+
+            if (woodToDrop > 0) SpawnResourcePickups("Wood", woodToDrop, new Color(0.5f, 0.25f, 0f));
+            if (stoneToDrop > 0) SpawnResourcePickups("Stone", stoneToDrop, Color.gray);
+
+            _carriedWoodAmount = 0;
+            _carriedStoneAmount = 0;
+        }
+
+        private void SpawnResourcePickups(string type, int count, Color color)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 spawnPos = transform.position + Vector3.up * 1.5f + Random.insideUnitSphere * 0.3f;
+                GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cube.transform.position = spawnPos;
+                cube.transform.localScale = Vector3.one * 0.4f;
+                
+                var rb = cube.AddComponent<Rigidbody>();
+                rb.mass = 0.5f;
+                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                
+                var rend = cube.GetComponent<Renderer>();
+                if (rend != null) rend.material.color = color;
+
+                var pickup = cube.AddComponent<ResourcePickup>();
+                pickup.Initialize(type, 1);
+            }
+        }
         public void Revive(float energyPercent) { if (CurrentState != VillagerState.Dead) return; var corpse = GetComponent<CorpseController>(); if (corpse != null) corpse.CleanUp(); var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 1; col.center = new Vector3(0, 1.0f, 0); col.height = 2.0f; col.radius = 0.3f; } if (_animator != null) { _animator.Rebind(); _animator.Update(0f); } Energy = maxEnergy * energyPercent; SetVisibility(true); GoIdleDirect(); }
         public void ForceIdle() { if (_targetResource != null) _targetResource.Release(); if (_targetBench != null) _targetBench.Vacate(); _targetResource = null; _targetDepot = null; _targetBench = null; GoIdleDirect(); }
         public void ModifyLoyalty(float amount) { if (CurrentState == VillagerState.Dead) return; float old = loyalty; loyalty = Mathf.Clamp(loyalty + amount, 0f, 100f); if (Mathf.Abs(loyalty - old) >= 0.5f && FloatingTextSpawner.Instance != null) { string sign = amount > 0 ? "+" : ""; Color color = amount > 0 ? Color.green : Color.red; FloatingTextSpawner.Instance.Spawn($"{sign}{amount:F0} Loyalty", transform.position + Vector3.up * 3.0f, color); } }

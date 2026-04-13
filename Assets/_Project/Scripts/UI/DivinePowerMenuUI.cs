@@ -31,10 +31,11 @@ namespace DivinePrototype
 
         private readonly List<PowerEntry> _entries = new List<PowerEntry>
         {
-            new PowerEntry { label = "Uomo",  power = DivinePower.SpawnMale,   faithCost = 20f, isLocked = false },
-            new PowerEntry { label = "Donna", power = DivinePower.SpawnFemale, faithCost = 20f, isLocked = false },
-            new PowerEntry { label = "Cane",  power = DivinePower.SpawnDog,    faithCost = 30f, isLocked = true  },
-            new PowerEntry { label = "Gatto", power = DivinePower.SpawnCat,    faithCost = 30f, isLocked = true  },
+            new PowerEntry { label = "Uomo",  power = DivinePower.SpawnMale,   faithCost = 0f, isLocked = false },
+            new PowerEntry { label = "Donna", power = DivinePower.SpawnFemale, faithCost = 0f, isLocked = false },
+            new PowerEntry { label = "Messaggero", power = DivinePower.Messenger, faithCost = 0f, isLocked = false },
+            new PowerEntry { label = "Cane",  power = DivinePower.SpawnDog,    faithCost = 0f, isLocked = false  },
+            new PowerEntry { label = "Gatto", power = DivinePower.SpawnCat,    faithCost = 0f, isLocked = false  },
         };
 
         // Stato runtime

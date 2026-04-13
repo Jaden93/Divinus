@@ -9,7 +9,7 @@
     "hacknplan": {
       "command": "node",
       "args": [
-        "C:/Users/gianluca.naddeo/black white 3 android/hacknplan-mcp/dist/index.js"
+        "C:/Users/gieid/hacknplan-mcp/dist/index.js"
       ],
       "env": {
         "HACKNPLAN_API_KEY": "942e9ab7354745029ea7180b85e504f7"

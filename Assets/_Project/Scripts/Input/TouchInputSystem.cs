@@ -24,6 +24,7 @@ namespace DivinePrototype
         public UnityEvent<VillagerController> onVillagerTapped = new UnityEvent<VillagerController>();
         public UnityEvent<DamageableObject> onObjectTapped = new UnityEvent<DamageableObject>();
         public UnityEvent<ResourceNode> onResourceTapped = new UnityEvent<ResourceNode>();
+        public UnityEvent<TombController> onTombTapped = new UnityEvent<TombController>();
 
         private Camera _camera;
 
@@ -85,7 +86,16 @@ namespace DivinePrototype
                     return;
                 }
 
-                // 3. PRIORITA': Oggetti danneggiabili (Edifici)
+                // 3. PRIORITA': Tombe
+                var tomb = hit.collider.GetComponentInParent<TombController>();
+                if (tomb != null)
+                {
+                    SpawnFeedback(hit.point);
+                    onTombTapped.Invoke(tomb);
+                    return;
+                }
+
+                // 4. PRIORITA': Oggetti danneggiabili (Edifici)
                 var dmg = hit.collider.GetComponentInParent<DamageableObject>();
                 if (dmg != null)
                 {
