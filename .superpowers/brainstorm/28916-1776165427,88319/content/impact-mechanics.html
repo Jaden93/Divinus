@@ -1,0 +1,40 @@
+<h2>Meccanica di Impatto Divino</h2>
+<p class="subtitle">Logica del proiettile villager e collisioni</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Logica di Collisione al Lancio</div>
+    <div class="mockup-body" style="padding:20px; font-family: monospace;">
+      <div style="border: 2px solid cyan; padding: 10px; margin-bottom: 10px;">
+        <strong>AL RILASCIO (Velocity > SOGLIA)</strong><br>
+        ➔ Attiva Rigidbody (non-kinematic)<br>
+        ➔ Applica Forza Impulsiva (Direzione Drag)<br>
+        ➔ Stato: <span style="color:yellow;">DIVINE_PROJECTILE</span>
+      </div>
+      
+      <div style="text-align:center;">⬇️</div>
+      
+      <div style="border: 2px solid white; padding: 10px; margin-top: 10px;">
+        <strong>EVENTO: ON_COLLISION_ENTER</strong><br>
+        ➔ Se Target = <span style="color:green;">ALBERO</span>: Abbatti/Danneggia<br>
+        ➔ Se Target = <span style="color:orange;">VILLAGER</span>: Danno + Spinta (Ragdoll)<br>
+        ➔ Se Target = <span style="color:red;">TERRENO</span>: Danno da caduta + VFX Polvere
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="ragdoll" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>Ragdoll al Lancio</h3>
+      <p>Il villager diventa "molle" durante il volo per un effetto più comico/realistico.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="vfx_trails" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>Scie Divine (VFX)</h3>
+      <p>Una scia di luce/particelle segue il villager lanciato per enfatizzare la potenza.</p>
+    </div>
+  </div>
+</div>

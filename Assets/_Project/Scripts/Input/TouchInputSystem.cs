@@ -26,11 +26,15 @@ namespace DivinePrototype
         public UnityEvent<ResourceNode> onResourceTapped = new UnityEvent<ResourceNode>();
         public UnityEvent<TombController> onTombTapped = new UnityEvent<TombController>();
 
+        [Header("Divine Systems")]
+        public DivineSelectionSystem selectionSystem;
+
         private Camera _camera;
 
         private void Awake()
         {
             _camera = Camera.main;
+            if (selectionSystem == null) selectionSystem = DivineSelectionSystem.Instance;
         }
 
         private void Update()
@@ -62,8 +66,9 @@ namespace DivinePrototype
             if (_camera == null) return;
 
             Ray ray = _camera.ScreenPointToRay(screenPos);
+            LayerMask combinedMask = terrainLayer | villagerLayer;
 
-            if (Physics.Raycast(ray, out RaycastHit hit, maxRayDistance))
+            if (Physics.Raycast(ray, out RaycastHit hit, maxRayDistance, combinedMask))
             {
                 Debug.Log($"[TouchInput] Hit: {hit.collider.name} su layer {hit.collider.gameObject.layer}");
 
@@ -73,6 +78,8 @@ namespace DivinePrototype
                 {
                     SpawnFeedback(hit.point);
                     onVillagerTapped.Invoke(villager);
+                    if (selectionSystem != null) selectionSystem.SelectVillager(villager);
+                    else if (DivineSelectionSystem.Instance != null) DivineSelectionSystem.Instance.SelectVillager(villager);
                     return;
                 }
 
@@ -111,6 +118,8 @@ namespace DivinePrototype
                 Vector3 worldPos = ray.GetPoint(enter);
                 SpawnFeedback(worldPos);
                 onTerrainTapped.Invoke(worldPos);
+                if (selectionSystem != null) selectionSystem.Deselect();
+                else if (DivineSelectionSystem.Instance != null) DivineSelectionSystem.Instance.Deselect();
             }
         }
 

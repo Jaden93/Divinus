@@ -1,0 +1,37 @@
+<h2>Dinamiche di Collisione e Menu Tap</h2>
+<p class="subtitle">Definiamo il comportamento fisico durante il Drag e il layout del Menu</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Collisione durante il Drag</div>
+    <div class="mockup-body" style="padding:15px; text-align:center;">
+      <div style="position:relative; height:120px; border:1px dashed #444; margin-bottom:10px;">
+        <div style="position:absolute; left:20px; bottom:20px; font-size:30px;">🏠</div>
+        <div style="position:absolute; left:70px; top:10px; font-size:30px; color:cyan; opacity:0.6;">👤</div>
+        <div style="position:absolute; left:120px; top:10px; font-size:30px; color:cyan;">👤</div>
+        <div style="position:absolute; left:60px; top:40px; border-top:2px dotted cyan; width:60px;"></div>
+      </div>
+      <div class="options" data-choice-group="drag_physics">
+        <div class="option" data-choice="ghost" onclick="toggleSelect(this)">
+          <div class="content"><strong>Ghost</strong>: Attraversa tutto</div>
+        </div>
+        <div class="option" data-choice="physical" onclick="toggleSelect(this)">
+          <div class="content"><strong>Physical</strong>: Urta e sposta</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Layout Icone (TAP)</div>
+    <div class="mockup-body" style="padding:15px; text-align:center;">
+      <div style="font-size:40px; margin-top:40px;">👤</div>
+      <div style="display:flex; justify-content:center; gap:10px; margin-top:-80px;">
+        <div style="width:30px; height:30px; border:2px solid gold; border-radius:50%; background:black;">ℹ️</div>
+        <div style="width:30px; height:30px; border:2px solid gold; border-radius:50%; background:black;">🌩️</div>
+        <div style="width:30px; height:30px; border:2px solid gold; border-radius:50%; background:black;">❤️</div>
+      </div>
+      <p style="margin-top:20px; font-size:12px; color:gold;">Icone fluttuanti sopra la testa</p>
+    </div>
+  </div>
+</div>

@@ -17,6 +17,10 @@ namespace DivinePrototype
         public float smoothSpeed = 12f;
         public LayerMask draggableLayer;
 
+        [Header("Fling")]
+        public float flingVelocityThreshold = 500f;
+        public float flingForceMultiplier = 1.5f;
+
         [Header("Feedback")]
         public GameObject grabVFXPrefab;
 
@@ -29,6 +33,8 @@ namespace DivinePrototype
         private bool _isPressing = false;
         private bool _isDragging = false;
         private Vector2 _pressStartPos;
+        private Vector3 _lastHeldPos;
+        private Vector3 _dragVelocity;
 
         private void Awake()
         {
@@ -65,12 +71,13 @@ namespace DivinePrototype
                 if (!_isDragging)
                 {
                     _pressTimer += Time.deltaTime;
-                    if (Vector2.Distance(screenPos, _pressStartPos) > 20f) // Mosso troppo, annulla long press
+                    if (Vector2.Distance(screenPos, _pressStartPos) > 50f) // Soglia aumentata da 20 a 50
                     {
                         _isPressing = false;
                     }
                     else if (_pressTimer >= longPressDuration)
                     {
+                        Debug.Log("[GodHand] Long Press rilevato, tento Grab...");
                         TryGrab(screenPos);
                     }
                 }
@@ -87,22 +94,35 @@ namespace DivinePrototype
         private void TryGrab(Vector2 screenPos)
         {
             Ray ray = _camera.ScreenPointToRay(screenPos);
-            if (Physics.Raycast(ray, out RaycastHit hit, 100f, draggableLayer))
-            {
-                // Cerca VillagerController o DamageableObject
-                var villager = hit.collider.GetComponentInParent<VillagerController>();
-                var dmgObj = hit.collider.GetComponentInParent<DamageableObject>();
+            // SphereCast con raggio di 0.5m per essere meno "pignoli" nel puntamento
+            RaycastHit[] hits = Physics.SphereCastAll(ray, 0.5f, 200f);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
-                if (villager != null)
+            bool foundTarget = false;
+            foreach (var hit in hits)
+            {
+                if (hit.collider.gameObject.layer == 5) continue; // Salta UI
+
+                var villager = hit.collider.GetComponentInParent<VillagerController>();
+                if (villager != null && villager.CurrentState != VillagerController.VillagerState.Dead)
                 {
-                    if (villager.CurrentState == VillagerController.VillagerState.Dead) return;
+                    Debug.Log($"[GodHand] Grab SphereCast: {villager.name} a distanza {hit.distance}");
                     Grab(villager.gameObject);
+                    foundTarget = true;
+                    break;
                 }
-                else if (dmgObj != null)
+
+                var dmgObj = hit.collider.GetComponentInParent<DamageableObject>();
+                if (dmgObj != null)
                 {
+                    Debug.Log($"[GodHand] Grab SphereCast: {dmgObj.name} a distanza {hit.distance}");
                     Grab(dmgObj.gameObject);
+                    foundTarget = true;
+                    break;
                 }
             }
+
+            if (!foundTarget) Debug.Log($"[GodHand] Grab fallito su {screenPos}. Nessun target trovato con SphereCast.");
             _isPressing = false;
         }
 
@@ -110,6 +130,8 @@ namespace DivinePrototype
         {
             _heldObject = target;
             _isDragging = true;
+            _lastHeldPos = _heldObject.transform.position;
+            _dragVelocity = Vector3.zero;
             
             _heldAgent = _heldObject.GetComponent<NavMeshAgent>();
             if (_heldAgent != null) _heldAgent.enabled = false;
@@ -139,13 +161,23 @@ namespace DivinePrototype
             Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
             if (groundPlane.Raycast(ray, out float enter))
             {
-                Vector3 worldPos = ray.GetPoint(enter);
-                Vector3 targetPos = worldPos + Vector3.up * pickupHeight;
-                
-                _heldObject.transform.position = Vector3.Lerp(_heldObject.transform.position, targetPos, Time.deltaTime * smoothSpeed);
-                
-                // Rotazione "pendolo" leggera o semplicemente guarda avanti
-                _heldObject.transform.rotation = Quaternion.Slerp(_heldObject.transform.rotation, Quaternion.identity, Time.deltaTime * 5f);
+                if (enter > 0)
+                {
+                    Vector3 worldPos = ray.GetPoint(enter);
+                    Vector3 targetPos = worldPos + Vector3.up * pickupHeight;
+
+                    // Calcola velocità di trascinamento basata sul movimento reale del tocco (prima del Lerp)
+                    if (Time.deltaTime > 0)
+                    {
+                        _dragVelocity = (targetPos - _lastHeldPos) / Time.deltaTime;
+                        _lastHeldPos = targetPos;
+                    }
+
+                    _heldObject.transform.position = Vector3.Lerp(_heldObject.transform.position, targetPos, Time.deltaTime * smoothSpeed);
+                    
+                    // Rotazione "pendolo" leggera o semplicemente guarda avanti
+                    _heldObject.transform.rotation = Quaternion.Slerp(_heldObject.transform.rotation, Quaternion.identity, Time.deltaTime * 5f);
+                }
             }
         }
 
@@ -153,71 +185,134 @@ namespace DivinePrototype
         {
             if (_heldObject == null) return;
 
-            Vector3 dropPos = _heldObject.transform.position;
-            if (NavMesh.SamplePosition(dropPos, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+            var villager = _heldObject.GetComponent<VillagerController>();
+            bool isFling = _dragVelocity.magnitude > flingVelocityThreshold;
+
+            if (isFling && villager != null)
             {
-                dropPos = hit.position;
+                if (_heldRb != null)
+                {
+                    _heldRb.isKinematic = false;
+                    _heldRb.useGravity = true;
+                    _heldRb.AddForce(_dragVelocity * flingForceMultiplier, ForceMode.Impulse);
+                }
+                villager.SetSocialState(VillagerController.VillagerState.DivineProjectile);
+                
+                if (FloatingTextSpawner.Instance != null)
+                    FloatingTextSpawner.Instance.Spawn("YEET!", _heldObject.transform.position + Vector3.up * 2f, Color.magenta);
             }
             else
             {
-                dropPos.y = 0f;
-            }
+                Vector3 dropPos = _heldObject.transform.position;
+                if (NavMesh.SamplePosition(dropPos, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+                {
+                    dropPos = hit.position;
+                }
+                else
+                {
+                    dropPos.y = 0f;
+                }
 
-            _heldObject.transform.position = dropPos;
+                _heldObject.transform.position = dropPos;
 
-            if (_heldAgent != null) _heldAgent.enabled = true;
-            if (_heldRb != null)
-            {
-                _heldRb.isKinematic = true; // In questo gioco preferiamo cinematic
-            }
+                if (_heldAgent != null) _heldAgent.enabled = true;
+                if (_heldRb != null)
+                {
+                    _heldRb.isKinematic = true; 
+                }
 
-            var villager = _heldObject.GetComponent<VillagerController>();
-            if (villager != null)
-            {
-                villager.GoIdleDirect();
-                if (FloatingTextSpawner.Instance != null)
-                    FloatingTextSpawner.Instance.Spawn("Dropped", dropPos + Vector3.up * 2f, Color.white);
+                if (villager != null)
+                {
+                    villager.GoIdleDirect();
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("Dropped", dropPos + Vector3.up * 2f, Color.white);
+                }
             }
 
             _heldObject = null;
             _heldAgent = null;
             _heldRb = null;
+            _dragVelocity = Vector3.zero;
         }
 
         // ── Input Abstraction ──────────────────────────────────────────
 
         private bool GetInputDown(out Vector2 pos)
         {
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-            { pos = Touchscreen.current.primaryTouch.position.ReadValue(); return true; }
+            // Priorità Mouse su desktop
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            { pos = Mouse.current.position.ReadValue(); return true; }
+            { 
+                pos = Mouse.current.position.ReadValue(); 
+                if (pos.sqrMagnitude > 0.01f) {
+                    Debug.Log($"[GodHand] Mouse Down: {pos}");
+                    return true;
+                }
+            }
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+            { 
+                pos = Touchscreen.current.primaryTouch.position.ReadValue(); 
+                if (pos.sqrMagnitude > 0.01f) {
+                    Debug.Log($"[GodHand] Touch Down: {pos}");
+                    return true; 
+                }
+            }
             pos = Vector2.zero; return false;
         }
 
         private bool GetInputHeld(out Vector2 pos)
         {
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
-            { pos = Touchscreen.current.primaryTouch.position.ReadValue(); return true; }
             if (Mouse.current != null && Mouse.current.leftButton.isPressed)
-            { pos = Mouse.current.position.ReadValue(); return true; }
+            { 
+                pos = Mouse.current.position.ReadValue(); 
+                if (pos.sqrMagnitude > 0.01f) return true;
+            }
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
+            { 
+                pos = Touchscreen.current.primaryTouch.position.ReadValue(); 
+                if (pos.sqrMagnitude > 0.01f) return true; 
+            }
             pos = Vector2.zero; return false;
         }
 
         private bool GetInputUp(out Vector2 pos)
         {
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame)
-            { pos = Touchscreen.current.primaryTouch.position.ReadValue(); return true; }
             if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
-            { pos = Mouse.current.position.ReadValue(); return true; }
+            { 
+                pos = Mouse.current.position.ReadValue(); return true; 
+            }
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame)
+            { 
+                pos = Touchscreen.current.primaryTouch.position.ReadValue(); return true; 
+            }
             pos = Vector2.zero; return false;
         }
 
         private Vector2 GetInputScreenPos()
         {
-            if (Touchscreen.current != null) return Touchscreen.current.primaryTouch.position.ReadValue();
-            if (Mouse.current != null) return Mouse.current.position.ReadValue();
-            return Vector2.zero;
+            Vector2 pos = Vector2.zero;
+
+            // 1. Prova con Pointer (Astrazione per Mouse/Touch)
+            if (Pointer.current != null) {
+                pos = Pointer.current.position.ReadValue();
+                if (pos.sqrMagnitude > 0.01f) return pos;
+            }
+
+            // 2. Prova con Mouse esplicito
+            if (Mouse.current != null) {
+                pos = Mouse.current.position.ReadValue();
+                if (pos.sqrMagnitude > 0.01f) return pos;
+            }
+
+            // 3. Prova con Touch esplicito
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) {
+                pos = Touchscreen.current.primaryTouch.position.ReadValue();
+                if (pos.sqrMagnitude > 0.01f) return pos;
+            }
+
+            // 4. Fallback estremo: Legacy Input (funziona spesso anche con New System)
+            pos = new Vector2(UnityEngine.Input.mousePosition.x, UnityEngine.Input.mousePosition.y);
+            
+            return pos;
         }
     }
 }

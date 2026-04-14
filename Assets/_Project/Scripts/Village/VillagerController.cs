@@ -18,7 +18,9 @@ namespace DivinePrototype
             Investigating, Gathering, Messenger,
             PickingUpCorpse, CarryingCorpse, Burying,
             Confronting,
-            HeadingToPickup
+            HeadingToPickup,
+            DivineProjectile,
+            Selected
         }
 
         [Header("Personality")]
@@ -71,6 +73,7 @@ namespace DivinePrototype
         public bool  HasPersonalAxe       { get; set; } = false;
         public bool  HasPersonalPickaxe   { get; set; } = false;
 
+        private bool _hasHitProjectile;
         private NavMeshAgent _agent;
         private Animator _animator;
         private static readonly int ParamWalking   = Animator.StringToHash("isWalking");
@@ -141,7 +144,20 @@ namespace DivinePrototype
 
         private void Update()
         {
-            if (CurrentState == VillagerState.Dead) { ClearCarriedVisual(); return; }
+            if (CurrentState == VillagerState.Dead || CurrentState == VillagerState.Selected) { 
+                if (CurrentState == VillagerState.Dead) ClearCarriedVisual(); 
+                
+                // Se selezionato, guarda verso la telecamera e blocca ogni movimento
+                if (CurrentState == VillagerState.Selected)
+                {
+                    StopAgent(); // Forza stop agent ogni frame se necessario
+                    Vector3 lookDir = Camera.main.transform.position - transform.position;
+                    lookDir.y = 0;
+                    if (lookDir.sqrMagnitude > 0.01f)
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), Time.deltaTime * 5f);
+                }
+                return; 
+            }
             UpdateAvoidancePriority(); if (IsMovingState(CurrentState)) PredictiveAvoidance();
             
             if (_agent != null && _agent.isOnNavMesh) {
@@ -222,7 +238,28 @@ namespace DivinePrototype
 
         private void ClearCarriedVisual() { if (_carriedVisual != null) { Destroy(_carriedVisual); _carriedVisual = null; } }
 
-        public void GoIdleDirect() { StopAgent(); CurrentState = VillagerState.Idle; _idleDuration = Random.Range(idleMinDuration, idleMaxDuration); _idleTimer = 0f; SetAnim(false, false); ClearCarriedVisual(); if (_targetPickup != null) { _targetPickup.Unclaim(); _targetPickup = null; } }
+        public void GoIdleDirect() 
+        { 
+            StopAgent(); 
+            CurrentState = VillagerState.Idle; 
+            _idleDuration = Random.Range(idleMinDuration, idleMaxDuration); 
+            _idleTimer = 0f; 
+            SetAnim(false, false); 
+            ClearCarriedVisual(); 
+            if (_targetPickup != null) { _targetPickup.Unclaim(); _targetPickup = null; } 
+
+            if (_agent != null && CurrentState != VillagerState.Dead) _agent.enabled = true;
+
+            // Reset Rigidbody
+            var rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.useGravity = false;
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+        }
         private void GoIdle() { if (Energy < idleSleepThreshold) { StartAutoSleep(); return; } GoIdleDirect(); }
         private void GoWalking() { if (!TryGetRandomNavMeshPoint(out Vector3 dest)) { GoIdleDirect(); return; } _walkTarget = dest; CurrentState = VillagerState.Walking; SetAnim(true, false); MoveTo(Flat(dest)); }
         private void UpdateWalking() { bool arrived; if (_agent != null && _agent.isOnNavMesh) arrived = !_agent.pathPending && _agent.remainingDistance <= waypointStopDistance; else arrived = Vector3.Distance(Flat(transform.position), Flat(_walkTarget)) <= waypointStopDistance; if (arrived) GoIdle(); }
@@ -427,14 +464,74 @@ namespace DivinePrototype
         public void Revive(float energyPercent) { if (CurrentState != VillagerState.Dead) return; var corpse = GetComponent<CorpseController>(); if (corpse != null) corpse.CleanUp(); var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 1; col.center = new Vector3(0, 1.0f, 0); col.height = 2.0f; col.radius = 0.3f; } if (_animator != null) { _animator.Rebind(); _animator.Update(0f); } Energy = maxEnergy * energyPercent; SetVisibility(true); GoIdleDirect(); }
         public void ForceIdle() { if (_targetResource != null) _targetResource.Release(); if (_targetBench != null) _targetBench.Vacate(); _targetResource = null; _targetDepot = null; _targetBench = null; GoIdleDirect(); }
         public void ModifyLoyalty(float amount) { if (CurrentState == VillagerState.Dead) return; float old = loyalty; loyalty = Mathf.Clamp(loyalty + amount, 0f, 100f); if (Mathf.Abs(loyalty - old) >= 0.5f && FloatingTextSpawner.Instance != null) { string sign = amount > 0 ? "+" : ""; Color color = amount > 0 ? Color.green : Color.red; FloatingTextSpawner.Instance.Spawn($"{sign}{amount:F0} Loyalty", transform.position + Vector3.up * 3.0f, color); } }
-        public void SetSocialState(VillagerState state) { if (CurrentState == VillagerState.Dead) return; CurrentState = state; if (state == VillagerState.Investigating || state == VillagerState.Messenger) SetAnim(true, false); else SetAnim(false, false); }
+        public void SetSocialState(VillagerState state) 
+        { 
+            if (CurrentState == VillagerState.Dead) return; 
+            if (state == VillagerState.DivineProjectile) _hasHitProjectile = false;
+            CurrentState = state; 
+            if (state == VillagerState.Investigating || state == VillagerState.Messenger) SetAnim(true, false); 
+            else SetAnim(false, false); 
+        }
         public void MoveToSocialTarget(Vector3 target, float speedMultiplier = 1.0f) { if (_agent != null && _agent.isOnNavMesh) { _agent.speed = moveSpeed * speedMultiplier; MoveTo(target); } }
-        public void PauseWork() { StopAgent(); }
-        public void ResumeWork() { if (_agent != null) _agent.speed = moveSpeed; GoIdleDirect(); }
+        public void PauseWork() 
+        { 
+            if (CurrentState == VillagerState.Dead) return; 
+            StopAgent(); 
+            if (CurrentState != VillagerState.Selected) CurrentState = VillagerState.Idle; 
+            SetAnim(false, false); 
+        }
+        public void ResumeWork() { if (CurrentState == VillagerState.Dead) return; if (_agent != null) _agent.speed = moveSpeed; GoIdleDirect(); }
         public void SetEnergy(float value) { Energy = Mathf.Clamp(value, 0f, maxEnergy); }
-        private void UpdateAvoidancePriority() { if (_agent == null) return; bool isStationary = CurrentState == VillagerState.Idle || CurrentState == VillagerState.ChoppingWood || CurrentState == VillagerState.MiningStone || CurrentState == VillagerState.Sitting || CurrentState == VillagerState.Sleeping || CurrentState == VillagerState.Resting; _agent.avoidancePriority = isStationary ? 30 : 50; }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (CurrentState != VillagerState.DivineProjectile) return;
+            if (_hasHitProjectile) return;
+
+            float speed = collision.relativeVelocity.magnitude;
+            if (speed > 2f)
+            {
+                _hasHitProjectile = true;
+                var otherVillager = collision.gameObject.GetComponentInParent<VillagerController>();
+                if (otherVillager != null && otherVillager != this)
+                {
+                    otherVillager.ModifyHealth(-speed * 3f);
+                    ModifyHealth(-speed * 1.5f);
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("CLASH!", collision.contacts[0].point, Color.red);
+                }
+
+                var dmgObj = collision.gameObject.GetComponentInParent<DamageableObject>();
+                if (dmgObj != null)
+                {
+                    dmgObj.TakeDamage();
+                    if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("BREAK!", collision.contacts[0].point, Color.green);
+                }
+
+                var resource = collision.gameObject.GetComponentInParent<ResourceNode>();
+                if (resource != null)
+                {
+                    if (speed > 10f) resource.SmiteDeplete();
+                    else if (FloatingTextSpawner.Instance != null)
+                        FloatingTextSpawner.Instance.Spawn("CRUNCH!", collision.contacts[0].point, Color.green);
+                }
+
+                if (speed > 8f) Invoke(nameof(GoIdleDirect), 0.2f);
+                else GoIdleDirect();
+            }
+        }
+
+        private void UpdateAvoidancePriority() { if (_agent == null) return; bool isStationary = CurrentState == VillagerState.Idle || CurrentState == VillagerState.ChoppingWood || CurrentState == VillagerState.MiningStone || CurrentState == VillagerState.Sitting || CurrentState == VillagerState.Sleeping || CurrentState == VillagerState.Resting || CurrentState == VillagerState.DivineProjectile; _agent.avoidancePriority = isStationary ? 30 : 50; }
         private void PredictiveAvoidance() { if (_agent == null || !_agent.isOnNavMesh || !_agent.hasPath) return; Vector3 rayOrigin = transform.position + Vector3.up * 0.5f; Vector3 rayDir = _agent.velocity.normalized; if (rayDir.sqrMagnitude < 0.01f) rayDir = transform.forward; float checkDist = 2.0f; float checkRadius = 0.5f; int mask = LayerMask.GetMask("Default"); if (Physics.SphereCast(rayOrigin, checkRadius, rayDir, out RaycastHit hit, checkDist, mask)) { if (hit.collider.gameObject == gameObject) return; Vector3 cross = Vector3.Cross(Vector3.up, rayDir).normalized; Vector3 offset = cross * 1.5f; if (Vector3.Dot(hit.normal, cross) < 0) offset = -cross * 1.5f; Vector3 newTempDest = transform.position + rayDir * 2.0f + offset; if (NavMesh.SamplePosition(newTempDest, out NavMeshHit navHit, 2.0f, NavMesh.AllAreas)) { if (hit.distance < 1.0f) _agent.SetDestination(navHit.position); } } }
         private bool IsMovingState(VillagerState state) { return state == VillagerState.Walking || state == VillagerState.CarryingWood || state == VillagerState.CarryingStone || state == VillagerState.GoingToSleep || state == VillagerState.PickingUpAxe || state == VillagerState.PickingUpPickaxe || state == VillagerState.GoingToBench || state == VillagerState.Investigating || state == VillagerState.Messenger || state == VillagerState.CarryingCorpse || state == VillagerState.HeadingToPickup; }
         public string GetStateLabel() { string traitPrefix = personality != null ? $"[{personality.primaryTrait}] " : "[Standard] "; string loyaltyText = $" | Loyalty: {Mathf.RoundToInt(loyalty)}"; string stateName = CurrentState switch { VillagerState.Idle => "Idle", VillagerState.Walking => "Walking Around", VillagerState.ChoppingWood => "Chopping Wood", VillagerState.CarryingWood => "Carrying Wood", VillagerState.MiningStone => "Mining Stone", VillagerState.CarryingStone => "Carrying Stone", VillagerState.GoingToSleep => "Going to Sleep", VillagerState.Sleeping => "Zzz...", VillagerState.PickingUpAxe => "Getting Axe", VillagerState.PickingUpPickaxe => "Getting Pickaxe", VillagerState.Resting => "Resting", VillagerState.GoingToBench => "Going to Bench", VillagerState.Sitting => "Sitting on Bench", VillagerState.Dead => "Dead", VillagerState.Investigating => "Investigating", VillagerState.Gathering => "Gathering", VillagerState.Messenger => "Spreading News", VillagerState.PickingUpCorpse => "Picking up Corpse", VillagerState.CarryingCorpse => "Carrying Dead Friend", VillagerState.Burying => "Burying...", VillagerState.HeadingToPickup => "Heading to Resource", _ => "Unknown" }; return traitPrefix + stateName + loyaltyText; }
+
+        public string GetCurrentThought() 
+        {
+            if (loyalty > 80f) return "Sia lode a Te, Onnipotente!";
+            if (loyalty < 30f) return "Ancora tu? Lasciami lavorare...";
+            return "Ti ascolto, Signore.";
+        }
     }
 }
