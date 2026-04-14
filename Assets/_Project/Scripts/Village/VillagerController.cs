@@ -146,11 +146,9 @@ namespace DivinePrototype
         {
             if (CurrentState == VillagerState.Dead || CurrentState == VillagerState.Selected) { 
                 if (CurrentState == VillagerState.Dead) ClearCarriedVisual(); 
-                
-                // Se selezionato, guarda verso la telecamera e blocca ogni movimento
                 if (CurrentState == VillagerState.Selected)
                 {
-                    StopAgent(); // Forza stop agent ogni frame se necessario
+                    StopAgent();
                     Vector3 lookDir = Camera.main.transform.position - transform.position;
                     lookDir.y = 0;
                     if (lookDir.sqrMagnitude > 0.01f)
@@ -250,7 +248,6 @@ namespace DivinePrototype
 
             if (_agent != null && CurrentState != VillagerState.Dead) _agent.enabled = true;
 
-            // Reset Rigidbody
             var rb = GetComponent<Rigidbody>();
             if (rb != null)
             {
@@ -258,7 +255,9 @@ namespace DivinePrototype
                 rb.useGravity = false;
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
+                rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             }
+            if (_animator != null) _animator.enabled = true;
         }
         private void GoIdle() { if (Energy < idleSleepThreshold) { StartAutoSleep(); return; } GoIdleDirect(); }
         private void GoWalking() { if (!TryGetRandomNavMeshPoint(out Vector3 dest)) { GoIdleDirect(); return; } _walkTarget = dest; CurrentState = VillagerState.Walking; SetAnim(true, false); MoveTo(Flat(dest)); }
@@ -285,58 +284,32 @@ namespace DivinePrototype
             if (_targetResource == null) { GoIdle(); return; }
             var rm = ResourceManager.Instance;
             if (rm != null) { var stoneData = rm.GetResourceData("Stone"); if (stoneData != null && stoneData.count >= stoneData.currentMax) { _targetResource.Release(); _targetResource = null; _targetDepot = null; GoIdleDirect(); return; } }
-            
-            // Calcola una posizione sicura ESTERNA alla roccia
             Vector3 dirFromNode = (transform.position - _targetResource.transform.position);
             dirFromNode.y = 0;
             if (dirFromNode.sqrMagnitude < 0.1f) dirFromNode = Vector3.forward;
             Vector3 safePos = Flat(_targetResource.transform.position) + dirFromNode.normalized * 2.0f;
-
             if (!_arrivedAtNode) { 
-                if (_agent != null) {
-                    _agent.stoppingDistance = 0.5f; // Stop distance vicino alla safePos
-                    _agent.updateRotation = true;
-                }
-                MoveTo(safePos); 
-                SetAnim(true, false, false); 
-                if (AgentReachedTarget(safePos, 0.8f)) { 
-                    _arrivedAtNode = true; 
-                    StopAgent(); 
-                } 
+                if (_agent != null) { _agent.stoppingDistance = 0.5f; _agent.updateRotation = true; }
+                MoveTo(safePos); SetAnim(true, false, false); 
+                if (AgentReachedTarget(safePos, 0.8f)) { _arrivedAtNode = true; StopAgent(); } 
             }
             else { 
                 SetAnim(false, false, true); 
-                if (_agent != null) _agent.updateRotation = false; // Forza stop rotazione agent
-
+                if (_agent != null) _agent.updateRotation = false;
                 if (_targetResource != null) { 
-                    // Rotazione FORZATA verso la roccia ogni frame
                     Vector3 dir = (_targetResource.transform.position - transform.position); 
-                    dir.y = 0; 
-                    if (dir.sqrMagnitude > 0.001f) {
-                        transform.rotation = Quaternion.LookRotation(dir);
-                    }
+                    dir.y = 0; if (dir.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(dir);
                 }
-                
-                _chopTimer += Time.deltaTime; 
-                _vfxTimer += Time.deltaTime; 
+                _chopTimer += Time.deltaTime; _vfxTimer += Time.deltaTime; 
                 Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
-                
                 if (miningVFXPrefab != null && _vfxTimer >= 0.8f) { 
-                    _vfxTimer = 0f; 
-                    Vector3 spawnPos = transform.position + transform.forward * 1.5f + Vector3.up * 0.8f; 
-                    GameObject vfx = Instantiate(miningVFXPrefab, spawnPos, transform.rotation); 
-                    Destroy(vfx, 1.5f); 
+                    _vfxTimer = 0f; Vector3 spawnPos = transform.position + transform.forward * 1.5f + Vector3.up * 0.8f; 
+                    GameObject vfx = Instantiate(miningVFXPrefab, spawnPos, transform.rotation); Destroy(vfx, 1.5f); 
                 }
-                
                 if (_chopTimer >= chopDuration) { 
-                    if (_agent != null) {
-                        _agent.updateRotation = true; 
-                        _agent.stoppingDistance = waypointStopDistance;
-                    }
-                    _vfxTimer = 0f; 
-                    int spaceLeft = rm != null ? rm.GetResourceData("Stone").currentMax - rm.GetResourceData("Stone").count : 1; 
-                    _carriedStoneAmount = _targetResource.TakeResource(spaceLeft); 
-                    UpdateCarriedVisual(Color.gray); 
+                    if (_agent != null) { _agent.updateRotation = true; _agent.stoppingDistance = waypointStopDistance; }
+                    _vfxTimer = 0f; int spaceLeft = rm != null ? rm.GetResourceData("Stone").currentMax - rm.GetResourceData("Stone").count : 1; 
+                    _carriedStoneAmount = _targetResource.TakeResource(spaceLeft); UpdateCarriedVisual(Color.gray); 
                     if (IsExhausted) { if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; StartAutoSleep(); } 
                     else GoCarryingStone(); 
                     return; 
@@ -350,13 +323,9 @@ namespace DivinePrototype
         private void UpdateCarryingWood()
         { 
             if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
-            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
-            MoveTo(depotPos); 
-            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
-            // Logica consegna "Bump-Proof": se sono molto vicino (3m), scarico comunque
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
             if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
-                ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); 
-                _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+                ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
                 if (IsExhausted) StartAutoSleep(); else GoIdle(); 
             } 
         }
@@ -364,13 +333,9 @@ namespace DivinePrototype
         private void UpdateCarryingStone()
         { 
             if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
-            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
-            MoveTo(depotPos); 
-            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
-            // Logica consegna "Bump-Proof"
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
             if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
-                ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); 
-                _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+                ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
                 if (IsExhausted) StartAutoSleep(); else GoIdle(); 
             } 
         }
@@ -405,133 +370,91 @@ namespace DivinePrototype
         
         public void Die() { 
             if (CurrentState == VillagerState.Dead) return; 
-
-            // Regola: se Loyalty > 80, il villager sopravvive allo Smite
             if (loyalty > 80f) { 
                 if (personality?.primaryTrait == PersonalityTrait.Courageous || personality?.primaryTrait == PersonalityTrait.Standard) {
-                    ModifyLoyalty(-50f); // Calo drastico della lealtà
-                    if (FloatingTextSpawner.Instance != null) 
-                        FloatingTextSpawner.Instance.Spawn("💢 DIVINE BETRAYAL!", transform.position + Vector3.up * 3.5f, Color.red);
-                } else {
-                    if (FloatingTextSpawner.Instance != null) 
-                        FloatingTextSpawner.Instance.Spawn("😇 PROTECTED", transform.position + Vector3.up * 3.5f, Color.yellow);
-                }
-                return; // Non muore
+                    ModifyLoyalty(-50f); if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("💢 DIVINE BETRAYAL!", transform.position + Vector3.up * 3.5f, Color.red);
+                } else { if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("😇 PROTECTED", transform.position + Vector3.up * 3.5f, Color.yellow); }
+                return;
             }
-
-            if (_targetResource != null) _targetResource.Release(); 
-            if (_targetBench != null) _targetBench.Vacate(); 
-            if (_targetHouse != null) _targetHouse.Vacate(); 
+            if (_targetResource != null) _targetResource.Release(); if (_targetBench != null) _targetBench.Vacate(); if (_targetHouse != null) _targetHouse.Vacate(); 
             _targetResource = null; _targetBench = null; _targetHouse = null; StopAgent(); 
-            
-            // --- DROP RESOURCES ON DEATH ---
             DropCarriedResources();
-
             CurrentState = VillagerState.Dead; var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 2; col.center = new Vector3(0, 0.2f, 1.2f); col.height = 2.0f; col.radius = 0.5f; } if (_animator != null) { _animator.SetTrigger(ParamDying); _animator.Update(0); } if (GetComponent<CorpseController>() == null) gameObject.AddComponent<CorpseController>(); ClearCarriedVisual(); if (_targetPickup != null) { _targetPickup.Unclaim(); _targetPickup = null; } }
 
-        private void DropCarriedResources()
-        {
-            int woodToDrop = _carriedWoodAmount;
-            int stoneToDrop = _carriedStoneAmount;
-
+        private void DropCarriedResources() {
+            int woodToDrop = _carriedWoodAmount; int stoneToDrop = _carriedStoneAmount;
             if (woodToDrop > 0) SpawnResourcePickups("Wood", woodToDrop, new Color(0.5f, 0.25f, 0f));
             if (stoneToDrop > 0) SpawnResourcePickups("Stone", stoneToDrop, Color.gray);
-
-            _carriedWoodAmount = 0;
-            _carriedStoneAmount = 0;
+            _carriedWoodAmount = 0; _carriedStoneAmount = 0;
         }
 
-        private void SpawnResourcePickups(string type, int count, Color color)
-        {
-            for (int i = 0; i < count; i++)
-            {
+        private void SpawnResourcePickups(string type, int count, Color color) {
+            for (int i = 0; i < count; i++) {
                 Vector3 spawnPos = transform.position + Vector3.up * 1.5f + Random.insideUnitSphere * 0.3f;
-                GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                cube.transform.position = spawnPos;
-                cube.transform.localScale = Vector3.one * 0.4f;
-                
-                var rb = cube.AddComponent<Rigidbody>();
-                rb.mass = 0.5f;
-                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-                
-                var rend = cube.GetComponent<Renderer>();
-                if (rend != null) rend.material.color = color;
-
-                var pickup = cube.AddComponent<ResourcePickup>();
-                pickup.Initialize(type, 1);
+                GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube); cube.transform.position = spawnPos; cube.transform.localScale = Vector3.one * 0.4f;
+                var rb = cube.AddComponent<Rigidbody>(); rb.mass = 0.5f; rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                var rend = cube.GetComponent<Renderer>(); if (rend != null) rend.material.color = color;
+                var pickup = cube.AddComponent<ResourcePickup>(); pickup.Initialize(type, 1);
             }
         }
         public void Revive(float energyPercent) { if (CurrentState != VillagerState.Dead) return; var corpse = GetComponent<CorpseController>(); if (corpse != null) corpse.CleanUp(); var col = GetComponent<CapsuleCollider>(); if (col != null) { col.direction = 1; col.center = new Vector3(0, 1.0f, 0); col.height = 2.0f; col.radius = 0.3f; } if (_animator != null) { _animator.Rebind(); _animator.Update(0f); } Energy = maxEnergy * energyPercent; SetVisibility(true); GoIdleDirect(); }
         public void ForceIdle() { if (_targetResource != null) _targetResource.Release(); if (_targetBench != null) _targetBench.Vacate(); _targetResource = null; _targetDepot = null; _targetBench = null; GoIdleDirect(); }
         public void ModifyLoyalty(float amount) { if (CurrentState == VillagerState.Dead) return; float old = loyalty; loyalty = Mathf.Clamp(loyalty + amount, 0f, 100f); if (Mathf.Abs(loyalty - old) >= 0.5f && FloatingTextSpawner.Instance != null) { string sign = amount > 0 ? "+" : ""; Color color = amount > 0 ? Color.green : Color.red; FloatingTextSpawner.Instance.Spawn($"{sign}{amount:F0} Loyalty", transform.position + Vector3.up * 3.0f, color); } }
-        public void SetSocialState(VillagerState state) 
-        { 
+        
+        public void SetSocialState(VillagerState state) { 
             if (CurrentState == VillagerState.Dead) return; 
             if (state == VillagerState.DivineProjectile) _hasHitProjectile = false;
             CurrentState = state; 
             if (state == VillagerState.Investigating || state == VillagerState.Messenger) SetAnim(true, false); 
             else SetAnim(false, false); 
         }
-        public void MoveToSocialTarget(Vector3 target, float speedMultiplier = 1.0f) { if (_agent != null && _agent.isOnNavMesh) { _agent.speed = moveSpeed * speedMultiplier; MoveTo(target); } }
-        public void PauseWork() 
-        { 
-            if (CurrentState == VillagerState.Dead) return; 
-            StopAgent(); 
-            if (CurrentState != VillagerState.Selected) CurrentState = VillagerState.Idle; 
-            SetAnim(false, false); 
-        }
-        public void ResumeWork() { if (CurrentState == VillagerState.Dead) return; if (_agent != null) _agent.speed = moveSpeed; GoIdleDirect(); }
-        public void SetEnergy(float value) { Energy = Mathf.Clamp(value, 0f, maxEnergy); }
 
-        private void OnCollisionEnter(Collision collision)
-        {
-            if (CurrentState != VillagerState.DivineProjectile) return;
-            if (_hasHitProjectile) return;
-
-            float speed = collision.relativeVelocity.magnitude;
-            if (speed > 2f)
-            {
-                _hasHitProjectile = true;
-                var otherVillager = collision.gameObject.GetComponentInParent<VillagerController>();
-                if (otherVillager != null && otherVillager != this)
-                {
-                    otherVillager.ModifyHealth(-speed * 3f);
-                    ModifyHealth(-speed * 1.5f);
-                    if (FloatingTextSpawner.Instance != null)
-                        FloatingTextSpawner.Instance.Spawn("CLASH!", collision.contacts[0].point, Color.red);
+        public void EnableRagdoll(bool active) {
+            if (CurrentState == VillagerState.Dead) return;
+            Debug.Log($"[VillagerController] EnableRagdoll({active}) su {name}. Animator: {(_animator != null)}, RB: {(GetComponent<Rigidbody>() != null)}");
+            if (_animator != null) _animator.enabled = !active;
+            var rb = GetComponent<Rigidbody>();
+            if (rb != null) {
+                rb.isKinematic = !active; rb.useGravity = active;
+                rb.constraints = active ? RigidbodyConstraints.None : RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+                if (active) {
+                    Debug.Log("[VillagerController] Applicando torque per ragdoll.");
+                    rb.AddTorque(Random.insideUnitSphere * 15f, ForceMode.Impulse);
                 }
-
-                var dmgObj = collision.gameObject.GetComponentInParent<DamageableObject>();
-                if (dmgObj != null)
-                {
-                    dmgObj.TakeDamage();
-                    if (FloatingTextSpawner.Instance != null)
-                        FloatingTextSpawner.Instance.Spawn("BREAK!", collision.contacts[0].point, Color.green);
-                }
-
-                var resource = collision.gameObject.GetComponentInParent<ResourceNode>();
-                if (resource != null)
-                {
-                    if (speed > 10f) resource.SmiteDeplete();
-                    else if (FloatingTextSpawner.Instance != null)
-                        FloatingTextSpawner.Instance.Spawn("CRUNCH!", collision.contacts[0].point, Color.green);
-                }
-
-                if (speed > 8f) Invoke(nameof(GoIdleDirect), 0.2f);
-                else GoIdleDirect();
             }
         }
+
+        private void OnCollisionEnter(Collision collision) {
+            if (CurrentState != VillagerState.DivineProjectile) return;
+            float speed = collision.relativeVelocity.magnitude;
+            if (_hasHitProjectile && speed < 2f) { Invoke(nameof(RecoverFromProjectile), 0.5f); return; }
+            if (_hasHitProjectile) return;
+            if (speed > 2f) {
+                _hasHitProjectile = true;
+                var otherVillager = collision.gameObject.GetComponentInParent<VillagerController>();
+                if (otherVillager != null && otherVillager != this) {
+                    otherVillager.ModifyHealth(-speed * 3f); ModifyHealth(-speed * 1.5f);
+                    if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("CLASH!", collision.contacts[0].point, Color.red);
+                }
+                var dmgObj = collision.gameObject.GetComponentInParent<DamageableObject>();
+                if (dmgObj != null) { dmgObj.TakeDamage(); if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("BREAK!", collision.contacts[0].point, Color.green); }
+                var resource = collision.gameObject.GetComponentInParent<ResourceNode>();
+                if (resource != null) { if (speed > 10f) resource.SmiteDeplete(); else if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("CRUNCH!", collision.contacts[0].point, Color.green); }
+                if (speed > 8f) Invoke(nameof(RecoverFromProjectile), 1.0f); else RecoverFromProjectile();
+            }
+        }
+
+        private void RecoverFromProjectile() { if (CurrentState == VillagerState.Dead) return; EnableRagdoll(false); GoIdleDirect(); }
+
+        public void MoveToSocialTarget(Vector3 target, float speedMultiplier = 1.0f) { if (_agent != null && _agent.isOnNavMesh) { _agent.speed = moveSpeed * speedMultiplier; MoveTo(target); } }
+        public void PauseWork() { if (CurrentState == VillagerState.Dead) return; StopAgent(); if (CurrentState != VillagerState.Selected) CurrentState = VillagerState.Idle; SetAnim(false, false); }
+        public void ResumeWork() { if (CurrentState == VillagerState.Dead) return; if (_agent != null) _agent.speed = moveSpeed; GoIdleDirect(); }
+        public void SetEnergy(float value) { Energy = Mathf.Clamp(value, 0f, maxEnergy); }
 
         private void UpdateAvoidancePriority() { if (_agent == null) return; bool isStationary = CurrentState == VillagerState.Idle || CurrentState == VillagerState.ChoppingWood || CurrentState == VillagerState.MiningStone || CurrentState == VillagerState.Sitting || CurrentState == VillagerState.Sleeping || CurrentState == VillagerState.Resting || CurrentState == VillagerState.DivineProjectile; _agent.avoidancePriority = isStationary ? 30 : 50; }
         private void PredictiveAvoidance() { if (_agent == null || !_agent.isOnNavMesh || !_agent.hasPath) return; Vector3 rayOrigin = transform.position + Vector3.up * 0.5f; Vector3 rayDir = _agent.velocity.normalized; if (rayDir.sqrMagnitude < 0.01f) rayDir = transform.forward; float checkDist = 2.0f; float checkRadius = 0.5f; int mask = LayerMask.GetMask("Default"); if (Physics.SphereCast(rayOrigin, checkRadius, rayDir, out RaycastHit hit, checkDist, mask)) { if (hit.collider.gameObject == gameObject) return; Vector3 cross = Vector3.Cross(Vector3.up, rayDir).normalized; Vector3 offset = cross * 1.5f; if (Vector3.Dot(hit.normal, cross) < 0) offset = -cross * 1.5f; Vector3 newTempDest = transform.position + rayDir * 2.0f + offset; if (NavMesh.SamplePosition(newTempDest, out NavMeshHit navHit, 2.0f, NavMesh.AllAreas)) { if (hit.distance < 1.0f) _agent.SetDestination(navHit.position); } } }
         private bool IsMovingState(VillagerState state) { return state == VillagerState.Walking || state == VillagerState.CarryingWood || state == VillagerState.CarryingStone || state == VillagerState.GoingToSleep || state == VillagerState.PickingUpAxe || state == VillagerState.PickingUpPickaxe || state == VillagerState.GoingToBench || state == VillagerState.Investigating || state == VillagerState.Messenger || state == VillagerState.CarryingCorpse || state == VillagerState.HeadingToPickup; }
         public string GetStateLabel() { string traitPrefix = personality != null ? $"[{personality.primaryTrait}] " : "[Standard] "; string loyaltyText = $" | Loyalty: {Mathf.RoundToInt(loyalty)}"; string stateName = CurrentState switch { VillagerState.Idle => "Idle", VillagerState.Walking => "Walking Around", VillagerState.ChoppingWood => "Chopping Wood", VillagerState.CarryingWood => "Carrying Wood", VillagerState.MiningStone => "Mining Stone", VillagerState.CarryingStone => "Carrying Stone", VillagerState.GoingToSleep => "Going to Sleep", VillagerState.Sleeping => "Zzz...", VillagerState.PickingUpAxe => "Getting Axe", VillagerState.PickingUpPickaxe => "Getting Pickaxe", VillagerState.Resting => "Resting", VillagerState.GoingToBench => "Going to Bench", VillagerState.Sitting => "Sitting on Bench", VillagerState.Dead => "Dead", VillagerState.Investigating => "Investigating", VillagerState.Gathering => "Gathering", VillagerState.Messenger => "Spreading News", VillagerState.PickingUpCorpse => "Picking up Corpse", VillagerState.CarryingCorpse => "Carrying Dead Friend", VillagerState.Burying => "Burying...", VillagerState.HeadingToPickup => "Heading to Resource", _ => "Unknown" }; return traitPrefix + stateName + loyaltyText; }
-
-        public string GetCurrentThought() 
-        {
-            if (loyalty > 80f) return "Sia lode a Te, Onnipotente!";
-            if (loyalty < 30f) return "Ancora tu? Lasciami lavorare...";
-            return "Ti ascolto, Signore.";
-        }
+        public string GetCurrentThought() { if (loyalty > 80f) return "Sia lode a Te, Onnipotente!"; if (loyalty < 30f) return "Ancora tu? Lasciami lavorare..."; return "Ti ascolto, Signore."; }
     }
 }
