@@ -255,6 +255,7 @@ namespace DivinePrototype
                 rb.useGravity = false;
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
+                rb.linearDamping = 0f;
                 rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             }
             if (_animator != null) _animator.enabled = true;
@@ -264,19 +265,51 @@ namespace DivinePrototype
         private void UpdateWalking() { bool arrived; if (_agent != null && _agent.isOnNavMesh) arrived = !_agent.pathPending && _agent.remainingDistance <= waypointStopDistance; else arrived = Vector3.Distance(Flat(transform.position), Flat(_walkTarget)) <= waypointStopDistance; if (arrived) GoIdle(); }
         private bool TryGetRandomNavMeshPoint(out Vector3 result) { Vector3 randomDir = Random.insideUnitSphere * wanderRadius; randomDir.y = 0f; randomDir += transform.position; if (NavMesh.SamplePosition(randomDir, out NavMeshHit hit, wanderRadius, NavMesh.AllAreas)) { result = hit.position; return true; } result = transform.position; return false; }
 
-        public void AssignResourceTask(ResourceNode node) { if (node == null || !node.TryAssign(this)) return; _targetResource = node; _arrivedAtNode = false; _chopTimer = 0f; _targetDepot = FindNearestDepot(); CurrentState = (node.resourceName == "Wood") ? VillagerState.ChoppingWood : VillagerState.MiningStone; }
+        public void AssignResourceTask(ResourceNode node) { 
+            if (node == null || !node.TryAssign(this)) return; 
+            _targetResource = node; 
+            _arrivedAtNode = false; 
+            _chopTimer = 0f; 
+            _targetDepot = FindNearestDepot(); 
+            if (_agent != null) _agent.stoppingDistance = taskStopDistance;
+            CurrentState = (node.resourceName == "Wood") ? VillagerState.ChoppingWood : VillagerState.MiningStone; 
+        }
 
         private void UpdateChoppingWood()
         {
             if (_targetResource == null) { GoIdle(); return; }
             var rm = ResourceManager.Instance;
             if (rm != null) { var woodData = rm.GetResourceData("Wood"); if (woodData != null && woodData.count >= woodData.currentMax) { _targetResource.Release(); _targetResource = null; _targetDepot = null; GoIdleDirect(); return; } }
+            
             Vector3 nodePos = Flat(_targetResource.transform.position);
-            if (!_arrivedAtNode) { MoveTo(nodePos); SetAnim(true, false); if (AgentReachedTarget(nodePos, taskStopDistance)) { _arrivedAtNode = true; StopAgent(); } }
-            else { SetAnim(false, true); if (_targetResource != null) { Vector3 dir = (_targetResource.transform.position - transform.position); dir.y = 0; if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 10f); }
-                _chopTimer += Time.deltaTime; Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
-                if (_chopTimer >= chopDuration) { int spaceLeft = rm != null ? rm.GetResourceData("Wood").currentMax - rm.GetResourceData("Wood").count : 1; _carriedWoodAmount = _targetResource.TakeResource(spaceLeft); UpdateCarriedVisual(new Color(0.5f, 0.25f, 0f)); GoCarryingWood(); return; }
-                if (IsExhausted) { if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; StartAutoSleep(); } }
+            if (!_arrivedAtNode) { 
+                MoveTo(nodePos); 
+                SetAnim(true, false); 
+                // Usiamo una distanza leggermente superiore per sicurezza nel trigger dell'arrivo
+                if (AgentReachedTarget(nodePos, taskStopDistance + 0.1f)) { 
+                    _arrivedAtNode = true; 
+                    StopAgent(); 
+                    if (_agent != null) _agent.velocity = Vector3.zero;
+                } 
+            }
+            else { 
+                SetAnim(false, true); 
+                if (_targetResource != null) { 
+                    Vector3 dir = (_targetResource.transform.position - transform.position); 
+                    dir.y = 0; 
+                    if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 10f); 
+                }
+                _chopTimer += Time.deltaTime; 
+                Energy = Mathf.Max(0f, Energy - energyDrainPerSecond * Time.deltaTime);
+                if (_chopTimer >= chopDuration) { 
+                    int spaceLeft = rm != null ? rm.GetResourceData("Wood").currentMax - rm.GetResourceData("Wood").count : 1; 
+                    _carriedWoodAmount = _targetResource.TakeResource(spaceLeft); 
+                    UpdateCarriedVisual(new Color(0.5f, 0.25f, 0f)); 
+                    GoCarryingWood(); 
+                    return; 
+                }
+                if (IsExhausted) { if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; StartAutoSleep(); } 
+            }
         }
 
         private void UpdateMiningStone()
@@ -323,9 +356,20 @@ namespace DivinePrototype
         private void UpdateCarryingWood()
         { 
             if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
-            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
-            if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
-                ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); _carriedWoodAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
+            MoveTo(depotPos); 
+            
+            _deliveryStuckTimer += Time.deltaTime;
+            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
+            
+            // Usiamo una tolleranza maggiore (3.5m) e un timeout di 10s per il deposito
+            if (dist < 3.5f || AgentReachedTarget(depotPos, 3.0f) || _deliveryStuckTimer > 10f) { 
+                ResourceManager.Instance?.AddResource("Wood", _carriedWoodAmount); 
+                _carriedWoodAmount = 0; 
+                _targetResource = null; 
+                _targetDepot = null; 
+                _deliveryStuckTimer = 0f;
+                ClearCarriedVisual(); 
                 if (IsExhausted) StartAutoSleep(); else GoIdle(); 
             } 
         }
@@ -333,9 +377,19 @@ namespace DivinePrototype
         private void UpdateCarryingStone()
         { 
             if (_targetDepot == null) { _targetDepot = FindNearestDepot(); if (_targetDepot == null) { ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; ClearCarriedVisual(); GoIdleDirect(); return; } }
-            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); MoveTo(depotPos); float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
-            if (dist < 3.0f || AgentReachedTarget(depotPos, 2.5f)) { 
-                ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); _carriedStoneAmount = 0; _targetResource = null; _targetDepot = null; ClearCarriedVisual(); 
+            Vector3 depotPos = _targetDepot.GetDeliveryPosition(); 
+            MoveTo(depotPos); 
+            
+            _deliveryStuckTimer += Time.deltaTime;
+            float dist = Vector3.Distance(Flat(transform.position), Flat(depotPos));
+            
+            if (dist < 3.5f || AgentReachedTarget(depotPos, 3.0f) || _deliveryStuckTimer > 10f) { 
+                ResourceManager.Instance?.AddResource("Stone", _carriedStoneAmount); 
+                _carriedStoneAmount = 0; 
+                _targetResource = null; 
+                _targetDepot = null; 
+                _deliveryStuckTimer = 0f;
+                ClearCarriedVisual(); 
                 if (IsExhausted) StartAutoSleep(); else GoIdle(); 
             } 
         }
@@ -350,8 +404,37 @@ namespace DivinePrototype
         private void GoResting() { StopAgent(); CurrentState = VillagerState.Resting; _restTimer = 0f; SetAnim(false, false); }
         private void UpdateResting() { _restTimer += Time.deltaTime; Energy = Mathf.Min(maxEnergy, Energy + (restRestoreAmount / restDuration) * Time.deltaTime); if (_restTimer >= restDuration || Energy >= maxEnergy) GoIdleDirect(); }
         private void GoToHouseAndSleep(HouseController house) { if (!house.TryOccupy()) { GoResting(); return; } SetAnim(false, false); if (_targetResource != null) _targetResource.Release(); _targetResource = null; _targetDepot = null; _targetHouse = house; _doorThreshold = house.GetDoorThreshold(); _sleepTarget = house.GetSleepPosition(); _isEnteringHouse = false; if (_agent != null) { _agent.enabled = true; _agent.radius = 0.3f; } _sleepDuration = house.sleepDuration; _sleepTimer = 0f; CurrentState = VillagerState.GoingToSleep; SetAnim(true, false); _targetHouse?.OpenDoor(); }
-        private void UpdateGoingToSleep() { if (!_isEnteringHouse) { MoveTo(_doorThreshold); if (Vector3.Distance(Flat(transform.position), Flat(_doorThreshold)) <= 1.2f) { _isEnteringHouse = true; if (_agent != null) _agent.enabled = false; } }
-            else { transform.position = Vector3.MoveTowards(transform.position, _sleepTarget, moveSpeed * 1.2f * Time.deltaTime); Vector3 dir = (_sleepTarget - transform.position).normalized; dir.y = 0f; if (dir.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime); if (Vector3.Distance(transform.position, _sleepTarget) <= 0.2f) { CurrentState = VillagerState.Sleeping; _sleepTimer = 0f; SetAnim(false, false); transform.position = _sleepTarget; _targetHouse?.CloseDoor(); } } }
+        private float _sleepTransitionTimer = 0f;
+        private void UpdateGoingToSleep() { 
+            if (!_isEnteringHouse) { 
+                MoveTo(_doorThreshold); 
+                _sleepTransitionTimer += Time.deltaTime;
+                // Usiamo una tolleranza più generosa (1.5f invece di 1.2f) e un timeout di sicurezza
+                if (AgentReachedTarget(_doorThreshold, 1.5f) || _sleepTransitionTimer > 10f) { 
+                    Debug.Log($"[VillagerController] {name} alla soglia o timeout. Forza entrata.");
+                    _isEnteringHouse = true; 
+                    _sleepTransitionTimer = 0f;
+                    if (_agent != null) _agent.enabled = false; 
+                } 
+            }
+            else { 
+                transform.position = Vector3.MoveTowards(transform.position, _sleepTarget, moveSpeed * 1.2f * Time.deltaTime); 
+                Vector3 dir = (_sleepTarget - transform.position).normalized; 
+                dir.y = 0f; 
+                if (dir.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime); 
+                
+                _sleepTransitionTimer += Time.deltaTime;
+                if (Vector3.Distance(transform.position, _sleepTarget) <= 0.3f || _sleepTransitionTimer > 5f) { 
+                    Debug.Log($"[VillagerController] {name} a letto o timeout. Zzz.");
+                    CurrentState = VillagerState.Sleeping; 
+                    _sleepTimer = 0f; 
+                    _sleepTransitionTimer = 0f;
+                    SetAnim(false, false); 
+                    transform.position = _sleepTarget; 
+                    _targetHouse?.CloseDoor(); 
+                } 
+            } 
+        }
         private void UpdateSleeping() { Energy = Mathf.Min(maxEnergy, Energy + sleepEnergyRestorePerSecond * Time.deltaTime); _sleepTimer += Time.deltaTime; if (_sleepTimer >= _sleepDuration || Energy >= maxEnergy) { var house = _targetHouse; house?.OpenDoor(); house?.Vacate(); _targetHouse = null; StartCoroutine(WalkOutAndIdle(house)); if (house != null) StartCoroutine(CloseDoorDelayed(house)); } }
         private System.Collections.IEnumerator WalkOutAndIdle(HouseController house) { CurrentState = VillagerState.Walking; if (_agent != null) _agent.enabled = true; Vector3 exitPos = transform.position - transform.forward * 2.5f; if (house != null) exitPos = transform.position + (transform.position - house.transform.position).normalized * 3.5f; MoveTo(exitPos); SetAnim(true, false); float timeout = 3f; while (timeout > 0f && Vector3.Distance(transform.position, exitPos) > 0.8f) { timeout -= Time.deltaTime; yield return null; } if (_agent != null) _agent.radius = 0.35f; _sleepTarget = Vector3.zero; GoIdleDirect(); }
         private System.Collections.IEnumerator CloseDoorDelayed(HouseController house) { yield return new WaitForSeconds(1.5f); house.CloseDoor(); }
@@ -438,11 +521,13 @@ namespace DivinePrototype
             if (CurrentState != VillagerState.DivineProjectile) return;
             float speed = collision.relativeVelocity.magnitude;
             
-            // Se tocchiamo il terreno dopo il lancio, aspettiamo 2 secondi prima di rialzarci
+            // Se tocchiamo il terreno dopo il lancio
             if (collision.collider.name.ToLower().Contains("terrain")) {
                 if (!_hasHitProjectile) {
                     _hasHitProjectile = true;
-                    Invoke(nameof(RecoverFromProjectile), 2.0f);
+                    // Se la velocità è bassa (gentle landing), ci riprendiamo subito
+                    float waitTime = (speed < 2f) ? 0.1f : 2.0f;
+                    Invoke(nameof(RecoverFromProjectile), waitTime);
                 }
                 return;
             }

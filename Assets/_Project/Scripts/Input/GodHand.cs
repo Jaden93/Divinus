@@ -202,13 +202,19 @@ namespace DivinePrototype
             }
             else
             {
-                Debug.Log($"[GodHand] FAIL: Speed {speed:F2} too low.");
-                Vector3 dropPos = _heldObject.transform.position;
-                if (NavMesh.SamplePosition(dropPos, out NavMeshHit hit, 5f, NavMesh.AllAreas)) dropPos = hit.position;
-                _heldObject.transform.position = dropPos;
-                if (_heldAgent != null) _heldAgent.enabled = true;
-                if (_heldRb != null) { _heldRb.isKinematic = true; _heldRb.useGravity = false; }
-                if (villager != null) villager.GoIdleDirect();
+                Debug.Log($"[GodHand] FAIL: Speed {speed:F2} too low. Gentle release.");
+                if (villager != null)
+                {
+                    villager.SetSocialState(VillagerController.VillagerState.DivineProjectile);
+                }
+
+                if (_heldRb != null)
+                {
+                    _heldRb.isKinematic = false;
+                    _heldRb.useGravity = true;
+                    _heldRb.linearVelocity = _currentVelocity;
+                    _heldRb.linearDamping = 2f; // Un po' più veloce di prima
+                }
             }
             _heldObject = null; _heldAgent = null; _heldRb = null; _isDragging = false;
         }
