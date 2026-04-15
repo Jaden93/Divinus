@@ -19,11 +19,11 @@ namespace DivinePrototype
 
         [Header("Fling (Lancio)")]
         [Tooltip("Soglia di velocità per attivare il lancio")]
-        public float flingThresholdForced = 1.0f;
-        public float flingForceMultiplier = 0.6f; // Ridotto drasticamente
-        public float upwardForceBoost = 0.2f; // Molto meno spinta verso l'alto
-        public float ragdollThreshold = 15.0f;
-        public float maxFlingForce = 20f; // Tetto massimo molto più basso
+        public float flingThresholdForced = 2.0f;
+        public float flingForceMultiplier = 2.5f; 
+        public float upwardForceBoost = 0.5f; 
+        public float ragdollThreshold = 10.0f;
+        public float maxFlingForce = 100f; 
 
         [Header("Feedback")]
         public GameObject grabVFXPrefab;
@@ -39,8 +39,12 @@ namespace DivinePrototype
         private Vector2 _pressStartPos;
         
         private Vector3 _currentVelocity;
-        private Queue<Vector3> _positionHistory = new Queue<Vector3>();
-        private const int PositionHistoryFrames = 3;
+        private struct PositionSample {
+            public Vector3 position;
+            public float time;
+        }
+        private Queue<PositionSample> _samples = new Queue<PositionSample>();
+        private const float SampleDuration = 0.1f; 
 
         private void Awake() 
         { 
@@ -53,8 +57,8 @@ namespace DivinePrototype
 
         private void Update()
         {
-            HandleInput();
             if (_isDragging && _heldObject != null) UpdateHeldObjectPosition();
+            HandleInput();
         }
 
         private void HandleInput()
@@ -119,7 +123,7 @@ namespace DivinePrototype
             _heldObject = target;
             _isDragging = true;
             _isPressing = false;
-            _positionHistory.Clear();
+            _samples.Clear();
             _currentVelocity = Vector3.zero;
 
             _heldAgent = _heldObject.GetComponent<NavMeshAgent>();
@@ -137,16 +141,27 @@ namespace DivinePrototype
             Vector2 screenPos = GetInputScreenPos();
             Ray ray = _camera.ScreenPointToRay(screenPos);
             Plane dragPlane = new Plane(Vector3.up, new Vector3(0, pickupHeight, 0));
+            
             if (dragPlane.Raycast(ray, out float enter))
             {
                 Vector3 worldPos = ray.GetPoint(enter);
-                _positionHistory.Enqueue(worldPos);
-                if (_positionHistory.Count > PositionHistoryFrames) _positionHistory.Dequeue();
-                if (_positionHistory.Count > 1) {
-                    Vector3 firstPos = _positionHistory.Peek();
-                    _currentVelocity = (worldPos - firstPos) / (Time.deltaTime * (_positionHistory.Count - 1));
+                
+                // Campionamento preciso della velocità (ultimi 100ms)
+                _samples.Enqueue(new PositionSample { position = worldPos, time = Time.unscaledTime });
+                while (_samples.Count > 1 && Time.unscaledTime - _samples.Peek().time > SampleDuration)
+                {
+                    _samples.Dequeue();
                 }
+
+                if (_samples.Count > 1)
+                {
+                    var first = _samples.Peek();
+                    float dt = Time.unscaledTime - first.time;
+                    if (dt > 0) _currentVelocity = (worldPos - first.position) / dt;
+                }
+
                 _heldObject.transform.position = Vector3.Lerp(_heldObject.transform.position, worldPos, Time.deltaTime * smoothSpeed);
+                
                 if (_currentVelocity.sqrMagnitude > 0.1f) {
                     Quaternion tilt = Quaternion.LookRotation(Vector3.forward + _currentVelocity * 0.05f, Vector3.up);
                     _heldObject.transform.rotation = Quaternion.Slerp(_heldObject.transform.rotation, tilt, Time.deltaTime * 10f);
@@ -168,22 +183,19 @@ namespace DivinePrototype
                 if (villager != null) {
                     villager.SetSocialState(VillagerController.VillagerState.DivineProjectile);
                     if (speed > ragdollThreshold) {
-                        Debug.Log($"[GodHand] Speed {speed:F2} > {ragdollThreshold}: Ragdoll attivo!");
                         villager.EnableRagdoll(true);
                     }
                 }
                 if (_heldRb != null) {
-                    _heldRb.isKinematic = false; _heldRb.useGravity = true;
-                    _heldRb.linearVelocity = Vector3.zero;
+                    _heldRb.isKinematic = false; 
+                    _heldRb.useGravity = true;
                     
-                    Vector3 force = _currentVelocity * flingForceMultiplier;
-                    force += Vector3.up * (speed * upwardForceBoost);
+                    Vector3 launchVelocity = _currentVelocity * flingForceMultiplier;
+                    launchVelocity += Vector3.up * (speed * upwardForceBoost);
+                    launchVelocity = Vector3.ClampMagnitude(launchVelocity, maxFlingForce);
                     
-                    // Applica il CAP alla forza massima
-                    force = Vector3.ClampMagnitude(force, maxFlingForce);
-                    
-                    _heldRb.AddForce(force, ForceMode.VelocityChange);
-                    Debug.Log($"[GodHand] Applied force (Capped): {force}");
+                    _heldRb.linearVelocity = launchVelocity; 
+                    Debug.Log($"[GodHand] Applied launch velocity: {launchVelocity}");
                 }
                 if (FloatingTextSpawner.Instance != null)
                     FloatingTextSpawner.Instance.Spawn("YEET!", _heldObject.transform.position + Vector3.up * 2f, Color.magenta);
