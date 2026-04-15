@@ -411,15 +411,25 @@ namespace DivinePrototype
 
         public void EnableRagdoll(bool active) {
             if (CurrentState == VillagerState.Dead) return;
-            Debug.Log($"[VillagerController] EnableRagdoll({active}) su {name}. Animator: {(_animator != null)}, RB: {(GetComponent<Rigidbody>() != null)}");
+            
             if (_animator != null) _animator.enabled = !active;
-            var rb = GetComponent<Rigidbody>();
-            if (rb != null) {
-                rb.isKinematic = !active; rb.useGravity = active;
-                rb.constraints = active ? RigidbodyConstraints.None : RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            
+            // Attiva/Disattiva tutti i Rigidbody nelle ossa
+            Rigidbody[] boneRbs = GetComponentsInChildren<Rigidbody>();
+            foreach (var rb in boneRbs) {
+                // Il Rigidbody principale deve rimanere kinematic se non siamo in Ragdoll
+                if (rb.gameObject == gameObject) {
+                    rb.isKinematic = !active;
+                    rb.useGravity = active;
+                    continue;
+                }
+                
+                rb.isKinematic = !active;
+                rb.useGravity = active;
+                
                 if (active) {
-                    Debug.Log("[VillagerController] Applicando torque per ragdoll.");
-                    rb.AddTorque(Random.insideUnitSphere * 15f, ForceMode.Impulse);
+                    rb.linearVelocity = GetComponent<Rigidbody>().linearVelocity;
+                    rb.AddTorque(Random.insideUnitSphere * 10f, ForceMode.Impulse);
                 }
             }
         }
@@ -427,8 +437,18 @@ namespace DivinePrototype
         private void OnCollisionEnter(Collision collision) {
             if (CurrentState != VillagerState.DivineProjectile) return;
             float speed = collision.relativeVelocity.magnitude;
-            if (_hasHitProjectile && speed < 2f) { Invoke(nameof(RecoverFromProjectile), 0.5f); return; }
+            
+            // Se tocchiamo il terreno dopo il lancio, aspettiamo 2 secondi prima di rialzarci
+            if (collision.collider.name.ToLower().Contains("terrain")) {
+                if (!_hasHitProjectile) {
+                    _hasHitProjectile = true;
+                    Invoke(nameof(RecoverFromProjectile), 2.0f);
+                }
+                return;
+            }
+
             if (_hasHitProjectile) return;
+            
             if (speed > 2f) {
                 _hasHitProjectile = true;
                 var otherVillager = collision.gameObject.GetComponentInParent<VillagerController>();
@@ -440,11 +460,30 @@ namespace DivinePrototype
                 if (dmgObj != null) { dmgObj.TakeDamage(); if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("BREAK!", collision.contacts[0].point, Color.green); }
                 var resource = collision.gameObject.GetComponentInParent<ResourceNode>();
                 if (resource != null) { if (speed > 10f) resource.SmiteDeplete(); else if (FloatingTextSpawner.Instance != null) FloatingTextSpawner.Instance.Spawn("CRUNCH!", collision.contacts[0].point, Color.green); }
-                if (speed > 8f) Invoke(nameof(RecoverFromProjectile), 1.0f); else RecoverFromProjectile();
+                
+                Invoke(nameof(RecoverFromProjectile), 2.0f);
             }
         }
 
-        private void RecoverFromProjectile() { if (CurrentState == VillagerState.Dead) return; EnableRagdoll(false); GoIdleDirect(); }
+        private void RecoverFromProjectile() { 
+            if (CurrentState == VillagerState.Dead) return; 
+
+            // Trova la posizione delle Hips per riposizionare il root dove è caduto il corpo
+            Transform hips = transform.Find("mixamorig:Hips");
+            if (hips != null) {
+                Vector3 fallPos = hips.position;
+                if (NavMesh.SamplePosition(fallPos, out NavMeshHit hit, 5f, NavMesh.AllAreas)) {
+                    transform.position = hit.position;
+                } else {
+                    transform.position = new Vector3(fallPos.x, 0, fallPos.z);
+                }
+                // Resetta la posizione locale delle Hips per evitare offset strani dopo il riposizionamento
+                hips.localPosition = Vector3.zero;
+            }
+
+            EnableRagdoll(false); 
+            GoIdleDirect(); 
+        }
 
         public void MoveToSocialTarget(Vector3 target, float speedMultiplier = 1.0f) { if (_agent != null && _agent.isOnNavMesh) { _agent.speed = moveSpeed * speedMultiplier; MoveTo(target); } }
         public void PauseWork() { if (CurrentState == VillagerState.Dead) return; StopAgent(); if (CurrentState != VillagerState.Selected) CurrentState = VillagerState.Idle; SetAnim(false, false); }
